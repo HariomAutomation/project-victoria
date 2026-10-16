@@ -356,49 +356,59 @@ def connect_brain_api_key(req: BrainKeyRequest):
 
         elif provider in ["openrouter", "opencode"]:
             import httpx
-            base_url = req.base_url or "https://openrouter.ai/api/v1"
-
-            candidate_models = []
-            if req.model_name and req.model_name not in ["openrouter", "openrouter/free", "default"]:
-                candidate_models.append(req.model_name)
-            candidate_models.extend([
-                "nvidia/nemotron-3.5-lightning:free",
-                "cohere/north-mini-code:free",
-                "liquid/lfm-2.5-2.6b:free",
-                "meta-llama/llama-3.3-70b-instruct:free",
-                "google/gemma-2-9b-it:free"
-            ])
-
+            # 1. Instant OpenRouter key authentication check (avoids inference queue timeouts)
+            auth_url = "https://openrouter.ai/api/v1/auth/key"
             headers = {
                 "Authorization": f"Bearer {key}",
-                "Content-Type": "application/json",
                 "HTTP-Referer": "https://victoria-assistant.local",
                 "X-Title": "Victoria AI Assistant",
             }
-            url = f"{base_url.rstrip('/')}/chat/completions"
+            try:
+                with httpx.Client(timeout=8.0) as http_client:
+                    auth_resp = http_client.get(auth_url, headers=headers)
+                    if auth_resp.status_code == 401:
+                        raise Exception("OpenRouter API Key अमान्य (Unauthorized) है। कृपया https://openrouter.ai/keys से सही Key प्राप्त करें।")
+                    elif auth_resp.status_code == 200:
+                        verified_model = req.model_name if req.model_name and req.model_name not in ["openrouter", "openrouter/free"] else "nvidia/nemotron-3.5-lightning:free"
+            except Exception as auth_err:
+                if "अमान्य" in str(auth_err):
+                    raise auth_err
 
-            last_err = None
-            with httpx.Client(timeout=14.0) as http_client:
-                for m in candidate_models:
-                    payload = {
-                        "model": m,
-                        "messages": [{"role": "user", "content": "ping"}],
-                        "max_tokens": 5,
-                    }
-                    try:
-                        resp = http_client.post(url, json=payload, headers=headers)
-                        if resp.status_code == 200:
-                            verified_model = m
-                            break
-                        elif resp.status_code == 401:
-                            raise Exception("OpenRouter API Key अमान्य (Unauthorized) है। कृपया https://openrouter.ai/keys से सही Key प्राप्त करें।")
-                        else:
-                            last_err = Exception(f"HTTP {resp.status_code}: {resp.text[:120]}")
-                    except httpx.RequestError as re:
-                        last_err = re
-
+            # Fallback to chat completions if auth/key endpoint was unreachable
             if not verified_model:
-                raise last_err or Exception("OpenRouter verification failed")
+                base_url = req.base_url or "https://openrouter.ai/api/v1"
+                candidate_models = []
+                if req.model_name and req.model_name not in ["openrouter", "openrouter/free", "default"]:
+                    candidate_models.append(req.model_name)
+                candidate_models.extend([
+                    "nvidia/nemotron-3.5-lightning:free",
+                    "cohere/north-mini-code:free",
+                    "liquid/lfm-2.5-2.6b:free",
+                ])
+                url = f"{base_url.rstrip('/')}/chat/completions"
+                headers["Content-Type"] = "application/json"
+                last_err = None
+                with httpx.Client(timeout=14.0) as http_client:
+                    for m in candidate_models:
+                        payload = {
+                            "model": m,
+                            "messages": [{"role": "user", "content": "ping"}],
+                            "max_tokens": 5,
+                        }
+                        try:
+                            resp = http_client.post(url, json=payload, headers=headers)
+                            if resp.status_code == 200:
+                                verified_model = m
+                                break
+                            elif resp.status_code == 401:
+                                raise Exception("OpenRouter API Key अमान्य (Unauthorized) है। कृपया https://openrouter.ai/keys से सही Key प्राप्त करें।")
+                            else:
+                                last_err = Exception(f"HTTP {resp.status_code}: {resp.text[:120]}")
+                        except httpx.RequestError as re:
+                            last_err = re
+
+                if not verified_model:
+                    raise last_err or Exception("OpenRouter verification failed")
 
         elif provider in ["openai", "groq", "sarvam"]:
             import httpx
