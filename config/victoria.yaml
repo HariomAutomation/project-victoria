@@ -187,6 +187,11 @@ tools:
   - reboot
   - systemctl stop
   - '> /dev/'
+rea:
+  # TLS certificate verification for website scans.
+  # false = also scan dev/staging hosts with self-signed certs (default).
+  # true  = strict verification (recommended for production scanning).
+  verify_ssl: false
 logging:
   level: INFO
   file: data/logs/victoria.log

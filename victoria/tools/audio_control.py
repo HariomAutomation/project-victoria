@@ -150,3 +150,27 @@ def get_volume() -> str:
 
     except Exception as e:
         return f"❌ Error getting volume: {str(e)}"
+
+
+def _set_mute(mute: bool) -> str:
+    """Set the system mute state directly (True = mute, False = unmute)."""
+    audio_sys = _get_audio_system()
+    state = "1" if mute else "0"
+
+    try:
+        if audio_sys == "pipewire":
+            subprocess.run(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", state], timeout=5)
+        elif audio_sys == "pulseaudio":
+            subprocess.run(["pactl", "set-sink-mute", "@DEFAULT_SINK@", state], timeout=5)
+        else:
+            subprocess.run(["amixer", "set", "Master", "mute" if mute else "unmute"], timeout=5)
+        return "🔇 Volume muted" if mute else "🔊 Volume unmuted"
+    except Exception as e:
+        return f"❌ Mute control error: {str(e)}"
+
+
+def toggle_mute() -> str:
+    """Toggle the system mute state: mute if currently unmuted, unmute otherwise."""
+    current = get_volume()
+    is_muted = "(muted)" in current
+    return _set_mute(not is_muted)

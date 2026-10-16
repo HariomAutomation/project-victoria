@@ -179,6 +179,14 @@ def build_tool_registry() -> ToolRegistry:
         category="media",
     )
 
+    registry.register(
+        name="toggle_mute",
+        description="Toggle the system mute state: mute if currently unmuted, unmute otherwise",
+        parameters=[],
+        function=audio_control.toggle_mute,
+        category="media",
+    )
+
     # ==========================================
     # 4. Brightness
     # ==========================================

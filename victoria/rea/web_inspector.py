@@ -65,8 +65,23 @@ class WebInspector:
     Website & Web Application Reverse Engineering Engine.
     """
 
-    def __init__(self, timeout: int = 15):
+    def __init__(self, timeout: int = 15, verify_ssl: Optional[bool] = None):
         self.timeout = timeout
+        # TLS verification is configurable (config: `rea.verify_ssl`).
+        # Defaults to False to preserve the ability to scan dev/staging hosts
+        # with self-signed certs, but can be turned on for hardened scanning.
+        if verify_ssl is None:
+            try:
+                from victoria.config import get_config
+                verify_ssl = bool(get_config().get("rea.verify_ssl", False))
+            except Exception:
+                verify_ssl = False
+        self.verify_ssl = verify_ssl
+        if not self.verify_ssl:
+            console.print(
+                "[yellow]⚠️ REA web scan is running with TLS verification DISABLED "
+                "(set `rea.verify_ssl: true` in config to enable).[/yellow]"
+            )
         self.headers = {
             "User-Agent": (
                 "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -83,7 +98,7 @@ class WebInspector:
                 headers=self.headers,
                 timeout=self.timeout,
                 follow_redirects=True,
-                verify=False,
+                verify=self.verify_ssl,
             ) as client:
                 resp = client.get(url)
                 return resp.status_code, resp.text, dict(resp.headers)
@@ -91,8 +106,9 @@ class WebInspector:
         # Standard library urllib fallback
         req = urllib.request.Request(url, headers=self.headers)
         ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
+        if not self.verify_ssl:
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
 
         with urllib.request.urlopen(req, timeout=self.timeout, context=ctx) as response:
             status = response.getcode()
