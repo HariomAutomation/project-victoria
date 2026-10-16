@@ -28,6 +28,9 @@ class ToolDefinition:
     parameters: list[ToolParameter] = field(default_factory=list)
     category: str = "general"          # For organization
     dangerous: bool = False            # Requires confirmation
+    # When set (e.g. for MCP tools), providers pass this JSON schema through
+    # to the model verbatim instead of building one from `parameters`.
+    raw_schema: Optional[dict] = None
 
 
 @dataclass

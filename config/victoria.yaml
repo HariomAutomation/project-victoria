@@ -107,13 +107,25 @@ brain:
   models:
     gemini:
       provider: gemini
-      model: gemini-2.0-flash
+      model: gemini-3.8-flash
       api_key_env: GEMINI_API_KEY
       temperature: 0.7
-      max_tokens: 4096
+      max_tokens: 8192
+    gemini_flash_lite:
+      provider: gemini
+      model: gemini-3.5-flash-lite
+      api_key_env: GEMINI_API_KEY
+      temperature: 0.7
+      max_tokens: 8192
+    gemini_flash_latest:
+      provider: gemini
+      model: gemini-flash-latest
+      api_key_env: GEMINI_API_KEY
+      temperature: 0.7
+      max_tokens: 8192
     gemini_pro:
       provider: gemini
-      model: gemini-1.5-pro
+      model: gemini-3.1-pro-preview
       api_key_env: GEMINI_API_KEY
       temperature: 0.7
       max_tokens: 8192
@@ -138,21 +150,21 @@ brain:
       max_tokens: 8192
     openrouter:
       provider: openai_compatible
-      model: meta-llama/llama-3.3-70b-instruct:free
+      model: openrouter/free
       api_key_env: OPENROUTER_API_KEY
       base_url: https://openrouter.ai/api/v1
       temperature: 0.7
       max_tokens: 4096
     openrouter_free:
       provider: openai_compatible
-      model: google/gemma-2-9b-it:free
+      model: google/gemma-4-31b-it:free
       api_key_env: OPENROUTER_API_KEY
       base_url: https://openrouter.ai/api/v1
       temperature: 0.7
       max_tokens: 4096
     opencode:
       provider: openai_compatible
-      model: qwen/qwen-2.5-coder-32b-instruct
+      model: qwen/qwen3.8-27b:free
       api_key_env: OPENROUTER_API_KEY
       base_url: https://openrouter.ai/api/v1
       temperature: 0.3
@@ -192,6 +204,29 @@ rea:
   # false = also scan dev/staging hosts with self-signed certs (default).
   # true  = strict verification (recommended for production scanning).
   verify_ssl: false
+ide:
+  # Victoria's IDE surface (Monaco editor + file tree + terminal + AI).
+  # Everything is sandboxed to this workspace root (relative to the project root).
+  workspace: "."
+  # Allow running shell commands from the IDE terminal (bounded by run_timeout).
+  allow_run: true
+  run_timeout: 20
+mcp:
+  # Model Context Protocol servers connected at startup. Their tools become
+  # callable by Victoria's brain as <tool_prefix>_<toolname> (e.g. rea_open_binary).
+  # Requires Node.js 22+ (REA's requirement). Startup is resilient: if a server
+  # is unavailable it is skipped and Victoria still starts.
+  enabled: true
+  servers:
+    rea:
+      enabled: true
+      command: npx
+      args: ["-y", "rea-agents@latest", "mcp"]
+      tool_prefix: rea
+      timeout: 600
+      # For native binary analysis, point REA at your engine (optional):
+      # env:
+      #   REA_ANALYSIS_PROVIDER: ghidra
 logging:
   level: INFO
   file: data/logs/victoria.log

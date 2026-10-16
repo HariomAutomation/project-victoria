@@ -43,27 +43,32 @@ class OllamaProvider(BaseProvider):
         """Convert tool definitions to Ollama/OpenAI function format."""
         ollama_tools = []
         for tool in tools:
-            properties = {}
-            required = []
+            if getattr(tool, "raw_schema", None):
+                parameters = tool.raw_schema
+            else:
+                properties = {}
+                required = []
 
-            for param in tool.parameters:
-                prop = {"type": param.type, "description": param.description}
-                if param.enum:
-                    prop["enum"] = param.enum
-                properties[param.name] = prop
-                if param.required:
-                    required.append(param.name)
+                for param in tool.parameters:
+                    prop = {"type": param.type, "description": param.description}
+                    if param.enum:
+                        prop["enum"] = param.enum
+                    properties[param.name] = prop
+                    if param.required:
+                        required.append(param.name)
+
+                parameters = {
+                    "type": "object",
+                    "properties": properties,
+                    "required": required,
+                }
 
             ollama_tools.append({
                 "type": "function",
                 "function": {
                     "name": tool.name,
                     "description": tool.description,
-                    "parameters": {
-                        "type": "object",
-                        "properties": properties,
-                        "required": required,
-                    },
+                    "parameters": parameters,
                 },
             })
         return ollama_tools
