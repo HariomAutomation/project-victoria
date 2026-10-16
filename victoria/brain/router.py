@@ -560,15 +560,15 @@ class BrainRouter:
         if any(w in t for w in ["volume", "awaz", "sound", "aawaz", "mute", "shant"]):
             if any(w in t for w in ["badhao", "up", "tez", "increase"]):
                 self.tool_registry.execute("set_volume", {"level": "85"})
-                return "जी हरिओम, मैंने आवाज़ (वॉल्यूम) बढ़ा दी है।"
+                return "जी हरिओम, मैंने वॉल्यूम (volume) बढ़ा दी है।"
             elif any(w in t for w in ["kam", "down", "dheere", "decrease", "ghatao"]):
                 self.tool_registry.execute("set_volume", {"level": "45"})
-                return "जी हरिओम, मैंने आवाज़ कम कर दी है।"
+                return "जी हरिओम, मैंने वॉल्यूम (volume) कम कर दी है।"
             elif any(w in t for w in ["mute", "shant"]):
                 self.tool_registry.execute("toggle_mute", {})
-                return "वॉल्यूम म्यूट हो गया है हरिओम जी।"
+                return "वॉल्यूम (volume) म्यूट हो गया है हरिओम जी।"
             else:
-                return "वॉल्यूम कंट्रोल टूल तैयार है हरिओम जी।"
+                return "वॉल्यूम (volume) कंट्रोल टूल तैयार है हरिओम जी।"
 
         # 3a. Media / Music Playback Control (Instant offline execution)
         if any(w in t for w in ["gana", "music", "song", "gaana", "spotify", "playback", "प्लेबैक", "गाना", "म्यूजिक"]):
