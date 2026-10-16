@@ -13,7 +13,6 @@ Sections:
   REGRESSION - every bug we fixed must stay fixed
 """
 
-import json
 import os
 import re
 import subprocess
