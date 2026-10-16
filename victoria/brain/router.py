@@ -297,15 +297,24 @@ class BrainRouter:
                         system_prompt=full_system_prompt,
                     )
 
-                    # Check if response text is an error indicating quota/rate limit
-                    if response.text and response.text.startswith("API error:") and (
-                        self._is_quota_or_rate_limit(response.text)
-                        or "not available" in response.text.lower()
-                        or "not a valid" in response.text.lower()
-                        or "404" in response.text
-                        or "429" in response.text
+                    # Check if response text is an error indicating quota/rate limit/outage (e.g. 503, 429)
+                    resp_str = str(response.text or "")
+                    err_lower = resp_str.lower()
+                    is_api_err = (
+                        resp_str.startswith("API error:")
+                        or resp_str.startswith("Gemini connection error:")
+                        or "connection error:" in err_lower
+                        or self._is_quota_or_rate_limit(resp_str)
+                    )
+                    if is_api_err and (
+                        self._is_quota_or_rate_limit(resp_str)
+                        or "not available" in err_lower
+                        or "not a valid" in err_lower
+                        or "503" in resp_str
+                        or "404" in resp_str
+                        or "429" in resp_str
                     ):
-                        raise RuntimeError(response.text)
+                        raise RuntimeError(resp_str)
 
                     # If there are tool calls, execute them
                     if response.tool_calls:
@@ -570,22 +579,22 @@ class BrainRouter:
                 return "वॉल्यूम (volume) कंट्रोल टूल तैयार है हरिओम जी।"
 
         # 3a. Media / Music Playback Control (Instant offline execution)
-        if any(w in t for w in ["gana", "music", "song", "gaana", "spotify", "playback", "प्लेबैक", "गाना", "म्यूजिक"]):
-            if any(w in t for w in ["band", "roko", "pause", "stop", "chup", "बंद", "रोको", "पॉज"]):
+        if any(w in t for w in ["gana", "music", "song", "gaana", "spotify", "playback", "प्लेबैक", "गाना", "गाने", "गीत", "म्यूजिक"]):
+            if any(w in t for w in ["band", "roko", "pause", "stop", "chup", "बंद", "रोको", "पॉज", "रोक", "रोकना"]):
                 try:
                     from victoria.tools.media_player import pause_media
                     pause_media()
                     return "जी हरिओम, गाना रोक दिया गया है।"
                 except Exception as e:
                     return f"गाना रोकने में समस्या आई: {e}"
-            elif any(w in t for w in ["chalao", "play", "resume", "shuru", "start", "चलाओ", "शुरू"]):
+            elif any(w in t for w in ["chalao", "play", "resume", "shuru", "start", "चलाओ", "शुरू", "बजाओ", "प्ले"]):
                 try:
                     from victoria.tools.media_player import play_media
                     play_media()
                     return "जी हरिओम, गाना शुरू कर दिया गया है।"
                 except Exception as e:
                     return f"गाना शुरू करने में समस्या आई: {e}"
-            elif any(w in t for w in ["next", "agla", "change", "badlo", "अगला"]):
+            elif any(w in t for w in ["next", "agla", "change", "badlo", "अगला", "बदलो"]):
                 try:
                     from victoria.tools.media_player import next_media
                     next_media()

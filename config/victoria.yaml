@@ -93,7 +93,7 @@ voice:
     input_device: null
   time_format: 12-hour
 brain:
-  active_model: sarvam
+  active_model: gemini
   models:
     gemini:
       provider: gemini
@@ -253,7 +253,7 @@ tools:
   - systemctl poweroff
   - '> /dev/'
 rea:
-  verify_ssl: true
+  verify_ssl: false
 ide:
   workspace: .
   allow_run: true

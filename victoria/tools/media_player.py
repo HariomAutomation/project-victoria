@@ -144,3 +144,29 @@ def get_now_playing() -> str:
         return f"🎵 Media Status: {status}"
     except Exception as e:
         return f"Error getting media status: {e}"
+
+
+def pause_media() -> str:
+    """Pause currently playing media."""
+    return media_control("pause")
+
+
+def play_media() -> str:
+    """Resume or start media playback."""
+    return media_control("play")
+
+
+def next_media() -> str:
+    """Skip to next media track."""
+    return media_control("next")
+
+
+def previous_media() -> str:
+    """Go back to previous media track."""
+    return media_control("previous")
+
+
+def stop_media() -> str:
+    """Stop media playback."""
+    return media_control("stop")
+
