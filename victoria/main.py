@@ -240,7 +240,7 @@ def main():
     parser = argparse.ArgumentParser(description="Victoria - Personal AI Assistant for Linux with REA Power")
     parser.add_argument("--mode", choices=["text", "voice", "hud"], default="text", help="Operating mode: text, voice, or hud")
     parser.add_argument("--hud", action="store_true", help="Launch Victoria Holographic 3D HUD Web Server")
-    parser.add_argument("--host", type=str, default="0.0.0.0", help="HUD server host (default 0.0.0.0)")
+    parser.add_argument("--host", type=str, default="127.0.0.1", help="HUD server host (default 127.0.0.1; use 0.0.0.0 to expose on the LAN)")
     parser.add_argument("--port", type=int, default=7860, help="HUD server port (default 7860)")
     parser.add_argument("--rea", type=str, default=None, help="Reverse engineer a target directly (URL, binary, db, device)")
     parser.add_argument("--rea-type", type=str, default="auto", choices=["auto", "website", "app", "database", "device"], help="Target type for REA")

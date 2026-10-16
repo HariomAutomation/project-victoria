@@ -24,6 +24,7 @@ class ToolRegistry:
 
     def __init__(self):
         self._tools: dict[str, dict] = {}  # name -> {definition, function}
+        self._mcp_clients: list = []       # live MCP server clients, kept alive here
 
     def register(
         self,
@@ -33,6 +34,7 @@ class ToolRegistry:
         function: Callable,
         category: str = "general",
         dangerous: bool = False,
+        raw_schema: Optional[dict] = None,
     ):
         """Register a tool."""
         self._tools[name] = {
@@ -42,6 +44,7 @@ class ToolRegistry:
                 parameters=parameters,
                 category=category,
                 dangerous=dangerous,
+                raw_schema=raw_schema,
             ),
             "function": function,
         }
@@ -686,6 +689,16 @@ def build_tool_registry() -> ToolRegistry:
         function=experience_tool.view_learned_skills,
         category="experience",
     )
+
+    # ==========================================
+    # 18. MCP Servers (e.g. morluto/rea reverse-engineering tools)
+    # ==========================================
+    try:
+        from victoria.config import get_config
+        from victoria.brain.mcp_bridge import load_mcp_servers
+        load_mcp_servers(registry, get_config().get("mcp", {}))
+    except Exception as e:  # noqa: BLE001 - MCP is optional; never break startup
+        console.print(f"[yellow]⚠️ MCP bridge skipped: {e}[/yellow]")
 
     console.print(f"[green]✅ {len(registry.list_tools())} tools registered[/green]")
     return registry
