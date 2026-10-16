@@ -22,6 +22,7 @@ from victoria.brain.router import BrainRouter
 from victoria.brain.memory import ConversationMemory
 from victoria.rea.teardown import ReverseEngineerEngine
 from victoria.tools import audio_control, screenshot
+from victoria.brain import model_discovery
 
 STATIC_DIR = Path(__file__).parent / "static"
 TEARDOWNS_DIR = PROJECT_ROOT / "data" / "teardowns"
@@ -36,9 +37,11 @@ rea_engine = ReverseEngineerEngine()
 
 app = FastAPI(title="Project Victoria HUD API", version="2.0")
 
+# The HUD can read/write files and run commands, so it must not be reachable
+# cross-origin from arbitrary websites. Restrict CORS to localhost only.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -235,74 +238,116 @@ def select_brain_model(req: BrainSelectRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.get("/api/brain/openrouter/models")
-def get_openrouter_free_models(api_key: Optional[str] = None):
-    """
-    Fetch all available free AI models from OpenRouter dynamically.
-    Returns model ID, name, context length, and description.
-    """
-    import httpx
+class UseModelRequest(BaseModel):
+    provider: str
+    model_id: str
+
+
+@app.post("/api/brain/use-model")
+def use_discovered_model(req: UseModelRequest):
+    """Activate a specific discovered model id for a provider and persist it."""
     cfg = get_config()
-    key = api_key or cfg.get_api_key("OPENROUTER_API_KEY")
+    provider = req.provider.lower().strip()
+    model_id = req.model_id.strip()
+    if not model_id:
+        raise HTTPException(status_code=400, detail="model_id cannot be empty")
 
-    headers = {
-        "HTTP-Referer": "https://victoria-assistant.local",
-        "X-Title": "Victoria AI Assistant",
+    config_key_map = {
+        "gemini": "gemini",
+        "openrouter": "openrouter",
+        "opencode": "opencode",
+        "groq": "groq",
+        "openai": "openai_gpt4o",
+        "sarvam": "sarvam",
+        "ollama": "local_fast",
     }
-    if key:
-        headers["Authorization"] = f"Bearer {key}"
-
-    curated_free_models = [
-        {"id": "openrouter/free", "name": "OpenRouter: Free Models Auto-Router (Always Free)", "context_length": 200000, "description": "Auto-routes to the best currently available free model"},
-        {"id": "meta-llama/llama-3.3-70b-instruct:free", "name": "Meta: LLaMA 3.3 70B Instruct (Free)", "context_length": 131072, "description": "Flagship 70B open model, versatile and intelligent"},
-        {"id": "google/gemma-4-31b-it:free", "name": "Google: Gemma 4 31B (Free)", "context_length": 262144, "description": "Google's powerful open weights model"},
-        {"id": "google/gemma-2-9b-it:free", "name": "Google: Gemma 2 9B IT (Free)", "context_length": 8192, "description": "Fast and lightweight by Google"},
-        {"id": "qwen/qwen-2.5-coder-32b-instruct:free", "name": "Qwen: 2.5 Coder 32B Instruct (Free)", "context_length": 32768, "description": "State-of-the-art coding and reasoning"},
-        {"id": "deepseek/deepseek-r1:free", "name": "DeepSeek: R1 Reasoning (Free)", "context_length": 65536, "description": "High-powered reasoning model"},
-        {"id": "nvidia/nemotron-3.5-lightning:free", "name": "NVIDIA: Nemotron 3.5 Lightning (Free)", "context_length": 1000000, "description": "Ultra long context 1M tokens"},
-        {"id": "cohere/north-mini-code:free", "name": "Cohere: North Mini Code (Free)", "context_length": 256000, "description": "Specialized code generation"},
-        {"id": "mistralai/mistral-7b-instruct:free", "name": "Mistral: 7B Instruct (Free)", "context_length": 32768, "description": "Fast conversational model"},
-    ]
+    config_key = config_key_map.get(provider)
+    if not config_key:
+        raise HTTPException(status_code=400, detail=f"Unknown provider: {provider}")
 
     try:
-        with httpx.Client(timeout=10.0) as client:
-            resp = client.get("https://openrouter.ai/api/v1/models", headers=headers)
-            if resp.status_code == 200:
-                data = resp.json().get("data", [])
-                free_list = []
-                for m in data:
-                    mid = m.get("id", "")
-                    is_free = (
-                        ":free" in mid
-                        or mid == "openrouter/free"
-                    )
-                    if is_free:
-                        free_list.append({
-                            "id": mid,
-                            "name": m.get("name", mid),
-                            "context_length": m.get("context_length", 0),
-                            "description": m.get("description", "")[:120],
-                        })
-
-                if free_list:
-                    # Put auto-router and top free models first
-                    free_list.sort(key=lambda x: (not x["id"].startswith("openrouter/free"), not "70b" in x["id"], x["name"]))
-                    import os
-                    return {
-                        "status": "ok",
-                        "total_free": len(free_list),
-                        "models": free_list,
-                        "current_selected": os.environ.get("OPENROUTER_CUSTOM_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
-                    }
+        models = cfg.get("brain.models", {})
+        if config_key in models:
+            cfg._raw["brain"]["models"][config_key]["model"] = model_id
     except Exception:
         pass
 
-    import os
+    if provider in ("openrouter", "opencode"):
+        cfg.set_openrouter_model(model_id)
+
+    try:
+        import yaml
+        with open(cfg.config_path, "w", encoding="utf-8") as f:
+            yaml.dump(cfg._raw, f, default_flow_style=False, sort_keys=False)
+    except Exception:
+        pass
+
+    brain_router.reload_provider(config_key)
+    brain_router.switch_model(config_key)
+    cfg.set_active_model(config_key, persist=True)
+
     return {
         "status": "ok",
-        "total_free": len(curated_free_models),
-        "models": curated_free_models,
-        "current_selected": os.environ.get("OPENROUTER_CUSTOM_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
+        "provider": provider,
+        "model": model_id,
+        "active_model": config_key,
+        "message": f"{provider} model set to {model_id}",
+    }
+
+
+@app.get("/api/brain/discover-models")
+def discover_brain_models(
+    provider: str,
+    api_key: Optional[str] = None,
+    base_url: Optional[str] = None,
+    free_only: bool = False,
+):
+    """
+    Live model discovery: query the provider's own /models endpoint using the
+    supplied (or already-stored) API key and return the current list of models.
+    Never returns an empty list (falls back to a curated set).
+    """
+    cfg = get_config()
+    key = (api_key or "").strip().strip("'\"") or None
+
+    if not key:
+        env_map = {
+            "gemini": "GEMINI_API_KEY",
+            "openrouter": "OPENROUTER_API_KEY",
+            "opencode": "OPENROUTER_API_KEY",
+            "groq": "GROQ_API_KEY",
+            "openai": "OPENAI_API_KEY",
+            "sarvam": "SARVAM_API_KEY",
+        }
+        env_var = env_map.get(provider.lower())
+        if env_var:
+            key = cfg.get_api_key(env_var) or None
+
+    result = model_discovery.list_models(provider, api_key=key, base_url=base_url, free_only=free_only)
+
+    if not result["models"]:
+        fallback = model_discovery.curated_fallback(provider)
+        result["models"] = fallback
+        result["count"] = len(fallback)
+        result["fallback"] = True
+    else:
+        result["fallback"] = False
+
+    result["status"] = "ok" if result["ok"] else "fallback"
+    return result
+
+
+@app.get("/api/brain/openrouter/models")
+def get_openrouter_free_models(api_key: Optional[str] = None):
+    """Backwards-compatible alias: live list of OpenRouter free models."""
+    import os
+    result = discover_brain_models(provider="openrouter", api_key=api_key, free_only=True)
+    models = result.get("models", [])
+    return {
+        "status": "ok",
+        "total_free": len(models),
+        "models": models,
+        "current_selected": os.environ.get("OPENROUTER_CUSTOM_MODEL", "openrouter/free"),
     }
 
 
@@ -327,12 +372,12 @@ def connect_brain_api_key(req: BrainKeyRequest):
 
             # Map friendly selection or config keys to actual Google Gemini model IDs
             candidate_models = []
-            if req.model_name and req.model_name.startswith("gemini-") and not req.model_name.startswith("gemini-2.5"):
+            if req.model_name and req.model_name.startswith("gemini-"):
                 candidate_models.append(req.model_name)
             elif req.model_name == "gemini_pro":
-                candidate_models.extend(["gemini-1.5-pro", "gemini-2.0-flash", "gemini-1.5-flash"])
+                candidate_models.extend(["gemini-3.1-pro-preview", "gemini-3.8-flash", "gemini-flash-latest"])
             else:
-                candidate_models.extend(["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"])
+                candidate_models.extend(["gemini-3.8-flash", "gemini-flash-latest", "gemini-3.5-flash-lite"])
 
             last_err = None
             for m in candidate_models:
@@ -381,8 +426,10 @@ def connect_brain_api_key(req: BrainKeyRequest):
                 if req.model_name and req.model_name not in ["openrouter", "openrouter/free", "default"]:
                     candidate_models.append(req.model_name)
                 candidate_models.extend([
+                    "openrouter/free",
                     "nvidia/nemotron-3.5-lightning:free",
                     "cohere/north-mini-code:free",
+                    "google/gemma-4-31b-it:free",
                     "liquid/lfm-2.5-2.6b:free",
                 ])
                 url = f"{base_url.rstrip('/')}/chat/completions"
@@ -476,7 +523,7 @@ def connect_brain_api_key(req: BrainKeyRequest):
             except Exception:
                 pass
     elif provider in ["openrouter", "opencode"]:
-        chosen_openrouter_model = verified_model or req.model_name or "nvidia/nemotron-3.5-lightning:free"
+        chosen_openrouter_model = verified_model or req.model_name or "openrouter/free"
         cfg.set_openrouter_model(chosen_openrouter_model)
         chosen_model = "openrouter"
     elif provider == "openai":
@@ -605,7 +652,22 @@ def add_experience_rule(req: AddRuleRequest):
     return {"status": "ok", "message": "Rule learned and saved!"}
 
 
-# Mount static assets
+# IDE surface (Monaco editor + file tree + terminal + AI) — sandboxed to ide.workspace
+from victoria.hud.ide_api import router as ide_router
+
+app.include_router(ide_router)
+
+
+@app.get("/ide", include_in_schema=False)
+def ide_page():
+    """Serve the Victoria IDE surface."""
+    page = STATIC_DIR / "ide.html"
+    if not page.exists():
+        raise HTTPException(status_code=404, detail="IDE page not found")
+    return FileResponse(str(page))
+
+
+# Mount static assets last, so /api/* and /ide take precedence
 if STATIC_DIR.exists():
     app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
 
@@ -639,7 +701,7 @@ def open_hud_window(url: str = "http://localhost:7860"):
         pass
 
 
-def start_hud_server(host: str = "0.0.0.0", port: int = 7860, open_browser: bool = True):
+def start_hud_server(host: str = "127.0.0.1", port: int = 7860, open_browser: bool = True):
     """Start the Victoria HUD web dashboard."""
     import socket
     import threading
@@ -671,4 +733,3 @@ def start_hud_server(host: str = "0.0.0.0", port: int = 7860, open_browser: bool
 
 if __name__ == "__main__":
     start_hud_server()
-
