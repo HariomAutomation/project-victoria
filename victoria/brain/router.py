@@ -283,12 +283,12 @@ class BrainRouter:
                 return f"System info nikalte samay error aaya: {e}"
 
         # 3. Audio & Volume Control
-        if any(w in t for w in ["volume", "awaz", "sound", "aawaz"]):
+        if any(w in t for w in ["volume", "awaz", "sound", "aawaz", "mute", "shant"]):
             if any(w in t for w in ["badhao", "up", "tez", "increase"]):
-                self.tool_registry.execute("set_volume", {"volume_percent": 85})
+                self.tool_registry.execute("set_volume", {"level": "85"})
                 return "Malik, maine volume badha di hai."
             elif any(w in t for w in ["kam", "down", "dheere", "decrease", "ghatao"]):
-                self.tool_registry.execute("set_volume", {"volume_percent": 45})
+                self.tool_registry.execute("set_volume", {"level": "45"})
                 return "Malik, maine volume kam kar di hai."
             elif any(w in t for w in ["mute", "shant"]):
                 self.tool_registry.execute("toggle_mute", {})
@@ -309,7 +309,7 @@ class BrainRouter:
             for app in ["chrome", "terminal", "code", "firefox", "calculator", "files", "vlc"]:
                 if app in t:
                     try:
-                        self.tool_registry.execute("launch_application", {"app_name": app})
+                        self.tool_registry.execute("open_application", {"app_name": app})
                         return f"Ji Malik, {app} open kar diya hai."
                     except Exception as e:
                         return f"{app} launch karne me issue aaya: {e}"
