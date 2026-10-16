@@ -5,7 +5,6 @@ Uses GNOME ScreenSaver DBus & systemd-logind session management.
 """
 
 import subprocess
-import shutil
 from typing import Dict, Any
 from rich.console import Console
 
@@ -108,7 +107,6 @@ def unlock_system_by_voice(similarity: float = 1.0, required_threshold: float = 
     # Voice biometric verified! Proceed to dismiss lock screen
     console.print(f"[bold green]🔓 Voice Biometric Verified (match: {similarity:.2f} >= {required_threshold})! Unlocking desktop...[/bold green]")
 
-    success = False
     try:
         # 1. Signal systemd-logind to unlock session
         subprocess.run(["loginctl", "unlock-session"], capture_output=True, timeout=2)
@@ -125,7 +123,6 @@ def unlock_system_by_voice(similarity: float = 1.0, required_threshold: float = 
             capture_output=True,
             timeout=2,
         )
-        success = True
     except Exception as e:
         console.print(f"[yellow]Unlock warning: {e}[/yellow]")
 

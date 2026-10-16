@@ -170,7 +170,7 @@ class MultimodalVisionEngine:
             return {
                 "success": False,
                 "error": "Could not decode any frames from video",
-                "speech": f"माफ़ कीजिए हरिओम, वीडियो से फ्रेम्स डिकोड नहीं किए जा सके।",
+                "speech": "माफ़ कीजिए हरिओम, वीडियो से फ्रेम्स डिकोड नहीं किए जा सके।",
             }
 
         # 2. Build composite montage image
@@ -396,7 +396,7 @@ class MultimodalVisionEngine:
                     f"फ़ाइल '{Path(image_or_montage_path).name}' ({w}x{h} पिक्सेल, {mode} मोड, {ext}) "
                     f"सफलतापूर्वक प्रोसेस की गई। विस्तृत विज़ुअल इंस्पेक्शन के लिए विज़न मॉडल एक्टिव है।"
                 )
-        except Exception as local_err:
+        except Exception:
             return f"विज़ुअल फ़ाइल प्रोसेस की गई: {image_or_montage_path}"
 
 

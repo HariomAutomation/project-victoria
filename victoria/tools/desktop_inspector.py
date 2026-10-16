@@ -6,7 +6,6 @@ and system status WITHOUT taking screenshots or writing images to disk.
 
 import os
 import subprocess
-import time
 from typing import Dict, Any, List
 from rich.console import Console
 

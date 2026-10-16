@@ -6,7 +6,6 @@ Fetch real-time weather information for any city/location quickly.
 import urllib.request
 import json
 import urllib.parse
-from typing import Optional
 
 
 def get_weather(city: str = "Varanasi") -> str:

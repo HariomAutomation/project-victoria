@@ -4,7 +4,8 @@ Routes requests to the correct AI provider, manages tool execution loops,
 and handles model switching at runtime.
 """
 
-from typing import Optional
+import re
+from typing import Optional, Any
 from rich.console import Console
 
 from victoria.config import get_config
@@ -157,11 +158,9 @@ class BrainRouter:
                 continue
             provider = m_cfg.get("provider", "")
             if provider == "ollama":
-                try:
-                    import ollama  # type: ignore
+                import importlib.util
+                if importlib.util.find_spec("ollama") is not None:
                     candidates.append(name)
-                except ImportError:
-                    continue
             elif provider == "opencode":
                 import shutil
                 from pathlib import Path
@@ -193,8 +192,8 @@ class BrainRouter:
         """
         all_defs = self.tool_registry.get_definitions()
         
-        # Check if query requests REA or web crawling
-        wants_rea = any(w in user_text.lower() for w in ["reverse engineer", "teardown", "rea", "crawl", "scrape", "clone", "deconstruct"])
+        # Check if query requests REA or web crawling (using word boundaries to avoid false positives like "create" or "area")
+        wants_rea = bool(re.search(r"\b(?:reverse\s*engineer|teardown|rea|crawl|scrape|clone|deconstruct)\b", user_text, re.IGNORECASE))
         
         # Models known to have limited token budgets for tools
         limited_models = ["sarvam", "local_fast", "local_coder", "opencode", "opencode_mimo", "opencode_deepseek"]
@@ -626,7 +625,6 @@ class BrainRouter:
                 return f"स्क्रीन का विश्लेषण करते समय समस्या आई: {e}"
 
         if any(w in t for w in ["video analyze", "video analysis", "video samjhao", "iss video me"]):
-            import re
             m = re.search(r'([/\w\.-]+\.(?:mp4|mkv|avi|webm|mov))', text, re.IGNORECASE)
             if m:
                 vpath = m.group(1)
@@ -638,7 +636,6 @@ class BrainRouter:
                 return "हरिओम जी, कृपया वीडियो फ़ाइल का पाथ बताएं (जैसे: 'analyze video /path/to/video.mp4')।"
 
         if any(w in t for w in ["image analyze", "photo analyze", "image samjhao", "photo samjhao", "iss photo me", "iss image me"]):
-            import re
             m = re.search(r'([/\w\.-]+\.(?:png|jpg|jpeg|webp|bmp|gif|svg))', text, re.IGNORECASE)
             if m:
                 ipath = m.group(1)
@@ -686,8 +683,7 @@ class BrainRouter:
                 pass
 
         # 7. Reverse Engineering & Clone Builder (Mor Luto REA Superpower)
-        if any(w in t for w in ["reverse engineer", "teardown", "rea", "clone", "deconstruct"]):
-            import re
+        if re.search(r"\b(?:reverse\s*engineer|teardown|rea|clone|deconstruct)\b", t, re.IGNORECASE):
             url_match = re.search(r'(https?://[^\s]+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:/[^\s]*)?)', text)
             if url_match:
                 target = url_match.group(1).rstrip(",.!?")

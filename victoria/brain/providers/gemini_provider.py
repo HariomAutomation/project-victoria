@@ -240,7 +240,7 @@ class GeminiProvider(BaseProvider):
         except Exception as e:
             console.print(f"[red]❌ Gemini API error: {e}[/red]")
             return BrainResponse(
-                text=f"API error: {str(e)} (Gemini connection error: {str(e)})",
+                text=f"Gemini connection error: {str(e)}",
                 model_used=self.model_name,
             )
 

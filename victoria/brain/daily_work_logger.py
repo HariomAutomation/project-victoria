@@ -18,7 +18,6 @@ Victoria - Local Offline Daily Work Journal & Date-Time Continuity Engine
 """
 
 import json
-import os
 import re
 import sqlite3
 import time

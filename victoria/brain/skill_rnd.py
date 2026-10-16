@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 from rich.console import Console
 
-from victoria.config import PROJECT_ROOT, get_config
+from victoria.config import PROJECT_ROOT
 
 console = Console()
 

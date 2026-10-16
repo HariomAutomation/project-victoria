@@ -119,8 +119,10 @@ class PersonaEngine:
             except Exception as e:
                 console.print(f"[yellow]⚠️ Could not parse existing owner profile ({e}), creating fresh.[/yellow]")
 
-        self._save_profile(DEFAULT_PROFILE)
-        return DEFAULT_PROFILE
+        import copy
+        fresh = copy.deepcopy(DEFAULT_PROFILE)
+        self._save_profile(fresh)
+        return fresh
 
     def _save_profile(self, data: Optional[Dict[str, Any]] = None):
         """Save profile to JSON and regenerate Markdown dossier."""

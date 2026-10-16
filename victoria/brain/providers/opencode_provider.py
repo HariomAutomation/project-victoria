@@ -17,7 +17,7 @@ from typing import Optional
 from rich.console import Console
 
 from victoria.brain.providers.base_provider import (
-    BaseProvider, BrainResponse, Message, ToolDefinition, ToolCall
+    BaseProvider, BrainResponse, Message, ToolDefinition
 )
 
 console = Console()
@@ -113,7 +113,7 @@ class OpenCodeProvider(BaseProvider):
             )
 
         except subprocess.TimeoutExpired:
-            raise RuntimeError(f"OpenCode model '{self.model_name}' timed out after 60 seconds.")
+            raise RuntimeError(f"OpenCode model '{self.model_name}' timed out after 30 seconds.")
         except Exception as e:
             console.print(f"[red]❌ OpenCode provider error: {e}[/red]")
             raise

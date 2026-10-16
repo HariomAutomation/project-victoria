@@ -223,12 +223,6 @@ class VictoriaConfig:
 
         if persist:
             self.save_env_variable("VICTORIA_ACTIVE_MODEL", model_name)
-            # Try to persist into YAML config as well
-            try:
-                with open(self.config_path, "w", encoding="utf-8") as f:
-                    yaml.dump(self._raw, f, default_flow_style=False, sort_keys=False)
-            except Exception as e:
-                console.print(f"[yellow]⚠️ Could not write to {self.config_path}: {e}[/yellow]")
 
         console.print(f"[green]🧠 Brain switched to: {model_name}[/green]")
 

@@ -8,8 +8,6 @@ import sys
 import math
 import random
 import webbrowser
-from typing import Optional
-
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QMenu
 )
@@ -17,7 +15,7 @@ from PyQt6.QtCore import (
     Qt, QTimer, QPoint, QPointF, QRectF
 )
 from PyQt6.QtGui import (
-    QPainter, QColor, QPen, QBrush, QRadialGradient, QFont, QAction, QCursor
+    QPainter, QColor, QPen, QBrush, QRadialGradient, QFont, QAction
 )
 
 from victoria.voice.voice_events import VoiceEventListener, EVENT_PORT

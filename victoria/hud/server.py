@@ -335,13 +335,7 @@ def use_discovered_model(req: UseModelRequest):
     elif provider == "opencode":
         cfg.set_opencode_model(model_id)
 
-    try:
-        import yaml
-        with open(cfg.config_path, "w", encoding="utf-8") as f:
-            yaml.dump(cfg._raw, f, default_flow_style=False, sort_keys=False)
-    except Exception:
-        pass
-
+    # In-memory config is updated; dynamic selection persists via .env to preserve YAML comments
     brain_router.reload_provider(config_key)
     brain_router.switch_model(config_key)
     cfg.set_active_model(config_key, persist=True)
@@ -420,13 +414,7 @@ def connect_brain_api_key(req: BrainKeyRequest):
 
     if provider == "opencode":
         chosen_model = req.model_name or "deepseek-v4.1-flash-free"
-        try:
-            cfg._raw["brain"]["models"]["opencode"]["model"] = chosen_model
-            import yaml
-            with open(cfg.config_path, "w", encoding="utf-8") as f:
-                yaml.dump(cfg._raw, f, default_flow_style=False, sort_keys=False)
-        except Exception:
-            pass
+        cfg.set_opencode_model(chosen_model)
         brain_router.reload_provider("opencode")
         brain_router.switch_model("opencode")
         cfg.set_active_model("opencode", persist=True)
@@ -608,12 +596,7 @@ def connect_brain_api_key(req: BrainKeyRequest):
             if "brain" in cfg._raw and "models" in cfg._raw["brain"]:
                 if chosen_model in cfg._raw["brain"]["models"]:
                     cfg._raw["brain"]["models"][chosen_model]["model"] = verified_model
-            try:
-                import yaml
-                with open(cfg.config_path, "w", encoding="utf-8") as f:
-                    yaml.dump(cfg._raw, f, default_flow_style=False, sort_keys=False)
-            except Exception:
-                pass
+            cfg.save_env_variable("GEMINI_CUSTOM_MODEL", verified_model)
     elif provider in ["openrouter", "opencode"]:
         chosen_openrouter_model = verified_model or req.model_name or "openrouter/free"
         cfg.set_openrouter_model(chosen_openrouter_model)

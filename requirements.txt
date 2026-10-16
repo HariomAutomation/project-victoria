@@ -30,7 +30,6 @@ psutil>=5.9
 pillow>=10.0
 opencv-python-headless>=4.8.0
 playwright>=1.40
-duckduckgo_search>=8.0
 ddgs>=9.0
 beautifulsoup4>=4.12
 pyautogui>=0.9.54

@@ -4,7 +4,6 @@ Enables Victoria to log tasks, query today's work journal, update checkpoints,
 and resume work exactly from where it was left off across any AI model.
 """
 
-from typing import Optional
 from victoria.brain.daily_work_logger import get_daily_work_logger
 
 
@@ -59,7 +58,7 @@ def get_daily_work_journal(date: str = "") -> str:
 
     if ckpt:
         lines.extend([
-            f"📍 अंतिम कार्य स्थिति (Where We Left Off):",
+            "📍 अंतिम कार्य स्थिति (Where We Left Off):",
             f"  • प्रोजेक्ट: {ckpt.get('current_project', 'PROJECT VICTORIA')}",
             f"  • अंतिम कार्य: {ckpt.get('last_task')}",
             f"  • स्थिति: {ckpt.get('where_we_left_off')}",

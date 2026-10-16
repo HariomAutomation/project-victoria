@@ -17,8 +17,6 @@ from victoria.config import get_config
 console = Console()
 
 
-import re
-
 def clean_text_for_speech(text: str) -> str:
     """
     Sanitize text to create smooth, natural, human-like voice synthesis without robotic glitches.
@@ -340,17 +338,6 @@ class TextToSpeech:
             except Exception:
                 pass
         self._current_player = None
-        # Guarantee audio output ceases on the system immediately
-        try:
-            import subprocess
-            subprocess.run(["pkill", "-9", "-f", "pw-play"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            subprocess.run(["pkill", "-9", "-f", "gst-play-1.0"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            subprocess.run(["pkill", "-9", "-f", "paplay"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            subprocess.run(["pkill", "-9", "-f", "aplay"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            subprocess.run(["pkill", "-9", "-f", "ffplay"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            subprocess.run(["pkill", "-9", "-f", "mpv"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except Exception:
-            pass
 
     def _play_audio(self, filepath: str):
         """Play an audio file using available system player with active tracking."""
@@ -393,7 +380,7 @@ class TextToSpeech:
 
         frame_size = int(listener.sample_rate * 0.03)  # 30ms frames
         consecutive_speech = 0
-        min_speech_trigger = 2  # ~60ms of voice triggers instant cutoff
+        min_speech_trigger = 3  # ~90ms of continuous voice triggers instant cutoff
         speaker_energies = []
         recent_buffer = []      # Ring buffer (~180ms) to prevent clipping first syllable
         max_buffer_frames = 6
@@ -446,7 +433,7 @@ class TextToSpeech:
                     else:
                         consecutive_speech = max(0, consecutive_speech - 1)
 
-                    if consecutive_speech >= 4:
+                    if consecutive_speech >= min_speech_trigger:
                         console.print("\n[bold yellow]🛑 [Barge-In] Hariom started speaking! Victoria stopping immediately...[/bold yellow]")
                         self.stop()
 

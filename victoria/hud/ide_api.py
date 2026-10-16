@@ -50,6 +50,24 @@ def _workspace_root() -> Path:
     return p.resolve()
 
 
+# Sensitive files and extensions that must NEVER be read, written, or searched via IDE API
+BLOCKED_SENSITIVE_NAMES = {
+    ".env", "id_rsa", "id_ecdsa", "id_ed25519"
+}
+BLOCKED_SENSITIVE_EXTENSIONS = {
+    ".key", ".pem", ".p12", ".pfx", ".pkcs12", ".kdbx", ".npy"
+}
+
+
+def _is_sensitive_path(path: Path) -> bool:
+    name_lower = path.name.lower()
+    if name_lower.startswith(".env") or name_lower in BLOCKED_SENSITIVE_NAMES:
+        return True
+    if path.suffix.lower() in BLOCKED_SENSITIVE_EXTENSIONS:
+        return True
+    return False
+
+
 def _safe(rel: Optional[str]) -> Path:
     """Resolve `rel` inside the workspace; reject anything that escapes it."""
     root = _workspace_root()
@@ -93,7 +111,7 @@ def ide_tree(path: str = ""):
         raise HTTPException(status_code=403, detail="Permission denied")
 
     for child in sorted(children, key=lambda p: (not p.is_dir(), p.name.lower())):
-        if child.name in SKIP_DIRS:
+        if child.name in SKIP_DIRS or _is_sensitive_path(child):
             continue
         try:
             is_dir = child.is_dir()
@@ -112,6 +130,8 @@ def ide_tree(path: str = ""):
 @router.get("/file")
 def ide_read_file(path: str):
     f = _safe(path)
+    if _is_sensitive_path(f):
+        raise HTTPException(status_code=403, detail="Access to sensitive configuration and credential files is forbidden")
     if not f.exists() or not f.is_file():
         raise HTTPException(status_code=404, detail="File not found")
     if f.stat().st_size > MAX_FILE_BYTES:
@@ -136,6 +156,8 @@ class SaveFileRequest(BaseModel):
 @router.post("/file")
 def ide_save_file(req: SaveFileRequest):
     f = _safe(req.path)
+    if _is_sensitive_path(f):
+        raise HTTPException(status_code=403, detail="Modifying sensitive configuration and credential files is forbidden")
     if f.exists() and f.is_dir():
         raise HTTPException(status_code=400, detail="Path is a directory")
     try:
@@ -159,6 +181,17 @@ def ide_run(req: RunRequest):
     command = (req.command or "").strip()
     if not command:
         raise HTTPException(status_code=400, detail="Empty command")
+
+    # Hard security locks against OS reboot and data destruction
+    from victoria.tools.terminal import REBOOT_SHUTDOWN_PATTERNS, DATA_REMOVAL_PATTERNS
+    import re
+    cmd_lower = command.lower()
+    for pat in REBOOT_SHUTDOWN_PATTERNS:
+        if re.search(pat, cmd_lower):
+            raise HTTPException(status_code=403, detail="Operating system reboot and shutdown are permanently locked by security policy.")
+    for pat in DATA_REMOVAL_PATTERNS:
+        if re.search(pat, cmd_lower):
+            raise HTTPException(status_code=403, detail="Destructive data removal commands are blocked by security policy.")
 
     cwd = _safe(req.cwd or "")
     if not cwd.is_dir():
@@ -194,7 +227,7 @@ def ide_search(q: str, path: str = "", max_results: int = 60):
     for p in root.rglob("*"):
         if len(results) >= max_results:
             break
-        if not p.is_file() or any(part in SKIP_DIRS for part in p.parts):
+        if not p.is_file() or _is_sensitive_path(p) or any(part in SKIP_DIRS for part in p.parts):
             continue
         if p.suffix.lower() in {".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".pdf",
                                 ".zip", ".gz", ".so", ".onnx", ".bin", ".pyc"}:

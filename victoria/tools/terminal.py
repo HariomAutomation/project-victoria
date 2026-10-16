@@ -36,8 +36,12 @@ DATA_REMOVAL_PATTERNS = [
     r"\bfind\b.*(?:-delete|-exec\s+rm)",   # find with -delete or -exec rm
     r"\btrash-put\b",                      # trash removal
     r"\btrash-empty\b",                    # trash emptying
-    r"os\.(?:remove|unlink)",              # python file deletion
-    r"shutil\.(?:rmtree)",                 # python recursive directory deletion
+    r"\btruncate\b.*(?:-s\s*0|--size\s*0|-s0|--size=0)",  # truncate to 0 wipe
+    r"\bmv\b.*(?:\s+/dev/null|\s+/dev/zero)",              # moving to /dev/null
+    r"os\.(?:remove|unlink|rmdir)",                        # python file deletion
+    r"shutil\.(?:rmtree)",                                 # python recursive directory deletion
+    r"Path\([^)]+\)\.unlink",                              # pathlib unlink
+    r"(?:os\.system|subprocess)\b.*?['\"].*?(?:rm\s+|reboot|shutdown)", # shell injection tricks
 ]
 
 REBOOT_LOCK_MESSAGE = (

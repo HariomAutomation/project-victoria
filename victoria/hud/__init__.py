@@ -8,6 +8,10 @@ Provides a sci-fi, cyberpunk, dark glassmorphic 3D HUD & Control Deck:
 - Interactive Hindi/English Voice & Chat Console
 """
 
-from victoria.hud.server import start_hud_server
+def __getattr__(name: str):
+    if name == "start_hud_server":
+        from victoria.hud.server import start_hud_server
+        return start_hud_server
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = ["start_hud_server"]

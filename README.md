@@ -14,7 +14,7 @@ Victoria is an advanced, autonomous personal AI assistant and digital twin built
 ## ✨ Key Features
 
 - 🧠 **Pluggable AI Brain Controller**:
-  - Native integration with **Google Gemini (2.0 Flash / 1.5 Pro)**.
+  - Native integration with **Google Gemini (3.8 Flash / 3.5 Flash-Lite / 3.1 Pro)** and local **OpenCode** engine.
   - Multi-provider support: **OpenRouter**, **Groq (LPU)**, **OpenAI (GPT-4o)**, **Sarvam AI**, and offline local **Ollama** models.
   - Built-in multi-model fallback and runtime provider switching.
 

@@ -252,7 +252,7 @@ tools:
   - systemctl poweroff
   - '> /dev/'
 rea:
-  verify_ssl: false
+  verify_ssl: true
 ide:
   workspace: .
   allow_run: true

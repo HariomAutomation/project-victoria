@@ -73,9 +73,9 @@ class WebInspector:
         if verify_ssl is None:
             try:
                 from victoria.config import get_config
-                verify_ssl = bool(get_config().get("rea.verify_ssl", False))
+                verify_ssl = bool(get_config().get("rea.verify_ssl", True))
             except Exception:
-                verify_ssl = False
+                verify_ssl = True
         self.verify_ssl = verify_ssl
         if not self.verify_ssl:
             console.print(
