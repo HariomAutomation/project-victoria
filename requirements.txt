@@ -15,7 +15,6 @@ soundfile>=0.12
 numpy>=1.24
 edge-tts>=6.1
 onnxruntime>=1.16.0
-scipy>=1.10.0
 
 # --- Web HUD & Realtime API ---
 fastapi>=0.100
@@ -29,10 +28,10 @@ httpx>=0.27
 # --- Linux System Tools & Automation ---
 psutil>=5.9
 pillow>=10.0
-dbus-python>=1.3
 playwright>=1.40
 
 # --- Optional Extras (System / Platform Dependent) ---
-# ollama>=0.4
-# openwakeword>=0.6
-# webrtcvad>=2.0.10
+# Install as needed; Victoria degrades gracefully if these are absent.
+# ollama>=0.4          # local offline models via `local_fast` / `local_coder`
+# openwakeword>=0.6    # low-resource always-on wake word (falls back to STT keyword)
+# webrtcvad>=2.0.10    # sharper voice-activity detection for the voice loop
