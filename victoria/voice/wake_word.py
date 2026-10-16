@@ -7,6 +7,7 @@ Supports two modes:
   2. openWakeWord: Uses a dedicated wake word model (low-resource, always-on)
 """
 
+import re
 import numpy as np
 import threading
 from typing import Optional
@@ -82,6 +83,11 @@ class WakeWordDetector:
         except ImportError:
             console.print("[yellow]⚠️  openwakeword not installed. Falling back to STT keyword mode.[/yellow]")
             self.engine = "stt_keyword"
+        except Exception as e:
+            # Model download/init failures must not crash the wake loop.
+            console.print(f"[yellow]⚠️  openWakeWord init failed ({e}). Falling back to STT keyword mode.[/yellow]")
+            self._oww_model = None
+            self.engine = "stt_keyword"
 
     def _check_phrase_match(self, text: str) -> bool:
         """
@@ -95,71 +101,57 @@ class WakeWordDetector:
         # Clean punctuation for robust matching
         clean_text = "".join(c for c in text_lower if c.isalnum() or c.isspace()).strip()
 
-        # Hindi and English wake word variants
-        variants = [
-            self.wake_phrase,
-            "victoria",
-            "he victoria",
-            "hey victoria",
-            "suno victoria",
-            "viktoria",
-            "victoriya",
-            "vitoria",
-            "vittoria",
-            "viktor",
-            "victor",
-            "biktoria",
-            "bikoria",
-            "विक्टोरिया",
-            "हे विक्टोरिया",
-            "सुनो विक्टोरिया",
-            "हाय विक्टोरिया",
-            "हेलो विक्टोरिया",
-            "विकटोरिया",
-            "विक्टोरीया",
-            "विक्तोरिया",
-            "विटोरिया",
-            "विक्टोरिया जी",
-            "विक्टर",
-            "विक्टरी",
-        ]
-        # Must explicitly contain Victoria variant in English or Hindi
+        # Must explicitly contain a Victoria variant in English or Hindi.
+        # Word-boundary matching prevents false wakes from words like "victory",
+        # "victor hugo", or arbitrary substrings.
         match_keywords = [
             "victoria", "viktoria", "victoriya", "viktor", "victor",
             "vitoria", "vittoria", "biktoria", "bikoria", "wiktor", "wiktoria",
             "विक्टोरिया", "विकटोरिया", "विक्टोरीया", "विक्तोरिया", "विटोरिया",
             "विक्टर", "विक्टरी"
         ]
-        victoria_present = any(kw in clean_text or kw in text_lower for kw in match_keywords)
-        if not victoria_present:
-            return False
+        wake_phrase = (self.wake_phrase or "").strip()
+        if wake_phrase and wake_phrase not in match_keywords:
+            match_keywords.append(wake_phrase)
 
-        for v in variants:
-            if v in clean_text or v in text_lower:
-                return True
+        def _is_word(keyword: str, haystack: str) -> bool:
+            return re.search(rf"(?<!\w){re.escape(keyword)}(?!\w)", haystack) is not None
 
-        return True
+        return any(_is_word(kw, clean_text) or _is_word(kw, text_lower) for kw in match_keywords)
 
-    def wait_for_wake_word(self, stop_event: threading.Event) -> Optional[np.ndarray]:
+    def wait_for_wake_word(
+        self,
+        stop_event: threading.Event,
+        wake_event: Optional[threading.Event] = None,
+    ) -> Optional[np.ndarray]:
         """
         Block until wake word is detected or stop_event is set.
 
+        Args:
+            stop_event: stops the whole assistant when set.
+            wake_event: optional manual-wake request (e.g. floating widget
+                click-to-listen). When set, the wake wait exits immediately.
+
         Returns:
             The audio that was captured after the wake word (trailing audio),
-            or None if stopped.
+            or None if stopped (or manually woken via wake_event).
         """
         if self.engine == "openwakeword" and self._oww_model is None:
             self._init_openwakeword()
 
         if self.engine == "stt_keyword":
-            return self._wait_stt_keyword(stop_event)
+            return self._wait_stt_keyword(stop_event, wake_event)
         elif self.engine == "openwakeword":
-            return self._wait_openwakeword(stop_event)
+            return self._wait_openwakeword(stop_event, wake_event)
         else:
             console.print(f"[red]❌ Unknown wake word engine: {self.engine}[/red]")
             return None
 
-    def _wait_stt_keyword(self, stop_event: threading.Event) -> Optional[np.ndarray]:
+    def _wait_stt_keyword(
+        self,
+        stop_event: threading.Event,
+        wake_event: Optional[threading.Event] = None,
+    ) -> Optional[np.ndarray]:
         """
         Listen for wake word using continuous STT transcription.
         Records 2-second sliding windows and checks for the wake phrase.
@@ -186,6 +178,9 @@ class WakeWordDetector:
                 samples_since_check = 0
 
                 while not stop_event.is_set():
+                    # Manual wake request (floating widget click-to-listen)
+                    if wake_event is not None and wake_event.is_set():
+                        return None
                     chunk = stream.read(frame_size)
 
                     # Shift buffer and add new chunk
@@ -226,12 +221,16 @@ class WakeWordDetector:
 
         return None
 
-    def _wait_openwakeword(self, stop_event: threading.Event) -> Optional[np.ndarray]:
+    def _wait_openwakeword(
+        self,
+        stop_event: threading.Event,
+        wake_event: Optional[threading.Event] = None,
+    ) -> Optional[np.ndarray]:
         """Listen for wake word using openWakeWord model."""
         if self._oww_model is None:
             self._init_openwakeword()
             if self._oww_model is None:
-                return self._wait_stt_keyword(stop_event)
+                return self._wait_stt_keyword(stop_event, wake_event)
 
         frame_size = 1280  # openWakeWord expects 80ms frames at 16kHz
         threshold = 0.5
@@ -245,6 +244,9 @@ class WakeWordDetector:
                 device=get_config().audio_config.get("input_device"),
             ) as stream:
                 while not stop_event.is_set():
+                    # Manual wake request (floating widget click-to-listen)
+                    if wake_event is not None and wake_event.is_set():
+                        return None
                     chunk = stream.read(frame_size)
                     chunk_int16 = (chunk * 32767).astype(np.int16)
 

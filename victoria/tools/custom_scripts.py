@@ -5,7 +5,6 @@ Run user-defined automation scripts located in scripts/custom or custom location
 
 import os
 import subprocess
-from pathlib import Path
 from typing import Optional
 from victoria.config import PROJECT_ROOT
 
@@ -41,15 +40,25 @@ def run_custom_script(script_name: str, args: Optional[str] = None, timeout: int
         Output of the script execution.
     """
     SCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
-    script_path = SCRIPTS_DIR / script_name
+    scripts_root = SCRIPTS_DIR.resolve()
 
-    if not script_path.exists():
-        # Check if direct path was provided
-        direct_path = Path(script_name)
-        if direct_path.exists():
-            script_path = direct_path
-        else:
-            return f"Script '{script_name}' not found in {SCRIPTS_DIR}."
+    # Containment: the resolved script must live inside scripts/custom.
+    # Absolute paths and "../" escapes are rejected (no arbitrary code execution).
+    try:
+        script_path = (SCRIPTS_DIR / script_name).resolve()
+    except Exception:
+        return f"Script '{script_name}' not found in {SCRIPTS_DIR}."
+    if not script_path.is_relative_to(scripts_root):
+        return "❌ सुरक्षा त्रुटि: कस्टम स्क्रिप्ट 'scripts/custom' डायरेक्टरी के अंदर ही होनी चाहिए।"
+    if not script_path.exists() or not script_path.is_file():
+        return f"Script '{script_name}' not found in {SCRIPTS_DIR}."
+
+    # Runtime security locks: name + args must not contain reboot/shutdown or
+    # data-destruction commands (same policy as the terminal tool).
+    from victoria.tools.terminal import check_command_safety
+    blocked = check_command_safety(f"{script_path.name} {args or ''}")
+    if blocked:
+        return blocked
 
     # Make executable if not already
     if not os.access(script_path, os.X_OK):
@@ -83,18 +92,12 @@ def create_custom_script(script_name: str, content: str, description: str = "") 
     Create a new offline executable script (Python or Bash) in scripts/custom/.
     Works 100% locally and offline without internet.
     """
-    # Security validation against reboot and data deletion
-    from victoria.tools.terminal import REBOOT_SHUTDOWN_PATTERNS, DATA_REMOVAL_PATTERNS
-    import re
+    # Security validation against reboot, shutdown and destructive data commands
+    from victoria.tools.terminal import check_command_safety
 
-    content_lower = content.lower()
-    for pat in REBOOT_SHUTDOWN_PATTERNS:
-        if re.search(pat, content_lower):
-            return f"🚫 सुरक्षा त्रुटि: स्क्रिप्ट '{script_name}' में रीबूट या शटडाउन कमांड शामिल है। रीबूट लॉक के कारण यह स्क्रिप्ट नहीं बनाई जा सकती।"
-
-    for pat in DATA_REMOVAL_PATTERNS:
-        if re.search(pat, content_lower):
-            return f"🛡️ सुरक्षा त्रुटि: स्क्रिप्ट '{script_name}' में डेटा डिलीट/रिमूव कमांड शामिल है। डेटा सुरक्षा लॉक के कारण यह स्क्रिप्ट नहीं बनाई जा सकती।"
+    blocked = check_command_safety(content)
+    if blocked:
+        return f"🛡️ सुरक्षा त्रुटि: स्क्रिप्ट '{script_name}' में प्रतिबंधित (रीबूट/शटडाउन/डेटा-डिलीट) कमांड शामिल है। सुरक्षा लॉक के कारण यह स्क्रिप्ट नहीं बनाई जा सकती।"
 
     SCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
     script_path = SCRIPTS_DIR / script_name

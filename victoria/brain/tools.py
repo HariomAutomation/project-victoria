@@ -13,6 +13,21 @@ from victoria.brain.providers.base_provider import ToolDefinition, ToolParameter
 console = Console()
 
 
+def _send_voice_daemon_command(command: str) -> bool:
+    """Best-effort UDP command to the always-on voice daemon (if one is running)."""
+    try:
+        import socket
+        from victoria.voice.voice_events import COMMAND_PORT
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            sock.sendto(json.dumps({"command": command}).encode("utf-8"), ("127.0.0.1", COMMAND_PORT))
+        finally:
+            sock.close()
+        return True
+    except Exception:
+        return False
+
+
 class ToolRegistry:
     """
     Central registry for all tools Victoria can use.
@@ -860,7 +875,9 @@ def build_tool_registry() -> ToolRegistry:
         from victoria.config import PROJECT_ROOT
         import py_compile
         target = (PROJECT_ROOT / relative_filepath).resolve()
-        if not str(target).startswith(str(PROJECT_ROOT)):
+        # Containment check: the resolved path must stay inside the project root
+        # (prefix tricks like "../Victorial_evil/..." must not escape).
+        if not target.is_relative_to(PROJECT_ROOT):
             return "त्रुटि: प्रोजेक्ट डायरेक्टरी से बाहर की फाइल्स संशोधित नहीं की जा सकतीं।"
         backup = target.with_suffix(target.suffix + ".bak")
         if target.exists():
@@ -911,8 +928,10 @@ def build_tool_registry() -> ToolRegistry:
     )
 
     def _tool_switch_voice(voice_name: str) -> str:
-        from victoria.voice.tts import TextToSpeech
-        tts = TextToSpeech()
+        from victoria.voice.tts import get_tts
+        # Keep the always-on voice daemon (if any) in sync with the shared TTS state
+        _send_voice_daemon_command("reload_voice")
+        tts = get_tts()
         v_key, v_name = tts.set_voice(voice_name, persist=True)
         return f"Victoria voice successfully changed to: {v_name}"
 
@@ -927,8 +946,8 @@ def build_tool_registry() -> ToolRegistry:
     )
 
     def _tool_demo_voices() -> str:
-        from victoria.voice.tts import TextToSpeech
-        tts = TextToSpeech()
+        from victoria.voice.tts import get_tts
+        tts = get_tts()
         return tts.demo_all_voices()
 
     registry.register(
@@ -953,7 +972,7 @@ def build_tool_registry() -> ToolRegistry:
 
     def _tool_unlock_system() -> str:
         from victoria.tools.system_lock import unlock_system_by_voice
-        res = unlock_system_by_voice(similarity=0.90)
+        res = unlock_system_by_voice()
         return res.get("message", "स्क्रीन अनलॉक कर दी गई है।")
 
     registry.register(
@@ -965,9 +984,11 @@ def build_tool_registry() -> ToolRegistry:
     )
 
     def _tool_stop_speech() -> str:
-        from victoria.voice.tts import TextToSpeech
-        tts = TextToSpeech()
-        tts.stop()
+        from victoria.voice.tts import get_tts
+        # 1. Stop playback in this process (shared singleton player)
+        get_tts().stop()
+        # 2. Also stop the always-on voice daemon's playback, if one is running
+        _send_voice_daemon_command("stop_speech")
         return "Victoria speech playback stopped immediately."
 
     registry.register(

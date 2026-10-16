@@ -280,8 +280,6 @@ CURATED_FREE_MODELS = [
     ("cohere/north-mini-code:free", "Cohere: North Mini Code (Free)", 256000),
     ("liquid/lfm-2.5-2.6b:free", "LiquidAI: LFM2.5 2.6B (Free)", 65536),
     ("google/gemma-4-31b-it:free", "Google: Gemma 4 31B (Free)", 262144),
-    ("deepseek/deepseek-chat", "DeepSeek: V3 Chat (OpenRouter)", 128000),
-    ("deepseek/deepseek-r1", "DeepSeek: R1 (OpenRouter)", 128000),
 ]
 
 

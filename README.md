@@ -117,6 +117,45 @@ PROJECT VICTORIA/
 
 ---
 
+## 🔌 Victoria MCP Server (Connect any AI to Victoria's Brain)
+
+Victoria ships a built-in **MCP (Model Context Protocol) server**, so any MCP-compatible
+AI client — Claude Desktop, OpenCode, Cursor, or a custom agent — can talk to her brain,
+switch her models, use her memory vault, run her system tools and make her speak.
+
+```bash
+victoria-mcp          # starts over stdio (or: python -m victoria.mcp.server)
+```
+
+Example client configuration (`opencode.json` / `claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "victoria": {
+      "command": "victoria-mcp"
+    }
+  }
+}
+```
+
+| Tool | What it does |
+| --- | --- |
+| `victoria_chat` | Send a message to Victoria (persona + memory + tools) |
+| `victoria_list_models` | List her configured AI models and the active one |
+| `victoria_switch_model` | Switch her active brain model |
+| `victoria_status` | Active model, tools, memory stats, voice enrollment |
+| `victoria_run_tool` | Run one of her built-in system tools directly |
+| `victoria_remember` | Save a fact/preference into her owner memory vault |
+| `victoria_recall` | Search her owner memory vault |
+| `victoria_speak` | Make Victoria speak text aloud |
+
+**Safety:** dangerous tools (file deletion, terminal, self-modification, …) are
+**fail-closed** over MCP. Enable them only with
+`mcp.victoria_server.allow_dangerous_tools: true` in `config/victoria.yaml`.
+
+---
+
 ## 🛡️ License
 
 Distributed under the MIT License. See `LICENSE` for more information.

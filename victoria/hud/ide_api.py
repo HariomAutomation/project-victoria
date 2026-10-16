@@ -182,16 +182,12 @@ def ide_run(req: RunRequest):
     if not command:
         raise HTTPException(status_code=400, detail="Empty command")
 
-    # Hard security locks against OS reboot and data destruction
-    from victoria.tools.terminal import REBOOT_SHUTDOWN_PATTERNS, DATA_REMOVAL_PATTERNS
-    import re
-    cmd_lower = command.lower()
-    for pat in REBOOT_SHUTDOWN_PATTERNS:
-        if re.search(pat, cmd_lower):
-            raise HTTPException(status_code=403, detail="Operating system reboot and shutdown are permanently locked by security policy.")
-    for pat in DATA_REMOVAL_PATTERNS:
-        if re.search(pat, cmd_lower):
-            raise HTTPException(status_code=403, detail="Destructive data removal commands are blocked by security policy.")
+    # Hard security locks against OS reboot and data destruction (shared policy:
+    # terminal tool + IDE run + custom scripts all use the same pattern set).
+    from victoria.tools.terminal import check_command_safety
+    blocked = check_command_safety(command)
+    if blocked:
+        raise HTTPException(status_code=403, detail=blocked)
 
     cwd = _safe(req.cwd or "")
     if not cwd.is_dir():
@@ -223,11 +219,18 @@ def ide_search(q: str, path: str = "", max_results: int = 60):
     root = _safe(path)
     results = []
     ql = q.lower()
+    root_resolved = root.resolve()
 
     for p in root.rglob("*"):
         if len(results) >= max_results:
             break
         if not p.is_file() or _is_sensitive_path(p) or any(part in SKIP_DIRS for part in p.parts):
+            continue
+        try:
+            # Symlinks pointing outside the workspace must never be read.
+            if not p.resolve().is_relative_to(root_resolved):
+                continue
+        except Exception:
             continue
         if p.suffix.lower() in {".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".pdf",
                                 ".zip", ".gz", ".so", ".onnx", ".bin", ".pyc"}:

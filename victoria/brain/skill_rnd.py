@@ -191,10 +191,14 @@ CRITICAL RULES:
 
         # Parse JSON from response
         clean_json_str = response_text.strip()
-        if "```json" in clean_json_str:
-            clean_json_str = re.search(r"```json\s*([\s\S]*?)\s*```", clean_json_str).group(1)
+        fence_match = re.search(r"```json\s*([\s\S]*?)\s*```", clean_json_str) or re.search(
+            r"```\s*([\s\S]*?)\s*```", clean_json_str
+        )
+        if fence_match:
+            clean_json_str = fence_match.group(1)
         elif "```" in clean_json_str:
-            clean_json_str = re.search(r"```\s*([\s\S]*?)\s*```", clean_json_str).group(1)
+            # Unbalanced code fences: strip them manually instead of crashing
+            clean_json_str = clean_json_str.replace("```json", "").replace("```", "").strip()
 
         try:
             data = json.loads(clean_json_str)

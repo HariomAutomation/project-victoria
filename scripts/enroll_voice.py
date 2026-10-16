@@ -15,7 +15,6 @@ from rich.panel import Panel
 PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from victoria.config import get_config
 from victoria.voice.audio_stream import AudioStream
 
 console = Console()
@@ -64,7 +63,7 @@ def enroll():
         # Optional Verification Test right after enrollment
         test_now = Prompt.ask("\n[bold cyan]Kya aap abhi apni awaz test karna chahte hain? (y/n)[/bold cyan]", default="y")
         if test_now.lower() == "y":
-            test_voice(encoder, master_embedding, sample_rate)
+            test_voice()
 
     else:
         console.print("[red]❌ Enrollment fail ho gaya: koi valid audio nahi mila.[/red]")

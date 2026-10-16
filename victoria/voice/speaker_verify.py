@@ -92,28 +92,36 @@ class SpeakerVerifier:
         end = min(len(audio), int(len(audio) - np.argmax(mask[::-1]) + 16000 * 0.05))
         return audio[start:end]
 
-    def verify(self, audio: np.ndarray, threshold: Optional[float] = None) -> Tuple[bool, float]:
+    def verify(
+        self,
+        audio: np.ndarray,
+        threshold: Optional[float] = None,
+        strict: bool = False,
+    ) -> Tuple[bool, float]:
         """
         Verify if the audio matches the owner's voice.
 
         Args:
             audio: numpy array of audio (float32, 16kHz, mono)
             threshold: optional custom threshold (default: self.threshold)
+            strict: when True, fail-open paths (disabled verifier, missing
+                profile/encoder, too-short audio) become hard REJECTS. Sensitive
+                operations such as screen unlock must use strict=True.
 
         Returns:
             Tuple of (is_owner, similarity_score)
         """
         if not self.enabled:
-            return True, 1.0
+            return (False, 0.0) if strict else (True, 1.0)
 
         if self._owner_embedding is None:
-            # No profile enrolled yet - accept all voices
+            # No profile enrolled yet - accept all voices (unless strict)
             console.print("[dim]🔓 No voice profile - accepting all voices[/dim]")
-            return True, 1.0
+            return (False, 0.0) if strict else (True, 1.0)
 
         encoder = self._get_encoder()
         if encoder is None:
-            return True, 1.0
+            return (False, 0.0) if strict else (True, 1.0)
 
         try:
             peak = float(np.max(np.abs(audio))) if audio is not None and len(audio) > 0 else 0.0
@@ -125,6 +133,8 @@ class SpeakerVerifier:
             trimmed = self.trim_silence(norm_audio, threshold=0.01)
             if len(trimmed) < int(self.sample_rate * 0.2):  # Less than 0.2s
                 console.print("[dim]Audio too short after trimming for verification[/dim]")
+                if strict:
+                    return False, 0.0
                 return True, 0.5  # Accept but with low confidence
 
             # Create embedding for the incoming audio

@@ -51,9 +51,29 @@ def set_brightness(level: str) -> str:
                     break
 
             if display:
-                val = max(0.1, min(1.0, int(level.lstrip("+-")) / 100))
+                # xrandr --brightness expects an absolute factor (0.1 - 1.0).
+                # Read the current factor so relative requests (+10 / -10) work.
+                current = None
+                try:
+                    verbose = subprocess.run(
+                        ["xrandr", "--verbose"],
+                        capture_output=True, text=True, timeout=5,
+                    )
+                    for line in verbose.stdout.split("\n"):
+                        if "Brightness:" in line:
+                            current = float(line.split("Brightness:")[1].strip())
+                            break
+                except Exception:
+                    current = None
+
+                if level.startswith("+") or level.startswith("-"):
+                    base = current if current is not None else 1.0
+                    val = base + (int(level) / 100.0)
+                else:
+                    val = int(level) / 100.0
+                val = max(0.1, min(1.0, val))
                 subprocess.run(
-                    ["xrandr", "--output", display, "--brightness", str(val)],
+                    ["xrandr", "--output", display, "--brightness", str(round(val, 2))],
                     timeout=5,
                 )
                 return f"💡 Brightness set to: {int(val * 100)}% (via xrandr)"

@@ -3,6 +3,7 @@ Victoria - HUD Backend Server (FastAPI)
 Powers the 3D Holographic AI Dashboard, REA Command Deck, and Real-time Telemetry.
 """
 
+import threading
 from pathlib import Path
 from typing import Optional
 
@@ -34,6 +35,29 @@ tool_registry = build_tool_registry()
 brain_router = BrainRouter(tool_registry=tool_registry)
 memory = ConversationMemory()
 rea_engine = ReverseEngineerEngine()
+
+# One shared brain lock: concurrent /api/chat requests must not interleave
+# conversation state and tool loops inside the router.
+_brain_lock = threading.Lock()
+
+
+def _locked_think(text: str) -> str:
+    with _brain_lock:
+        return brain_router.think(text)
+
+
+def _hud_confirm(tool_name: str, arguments: dict) -> bool:
+    """
+    Dangerous tools need an interactive confirmation; the HUD has no prompt UI,
+    so they only run when explicitly allowed via tools.allow_dangerous_in_hud.
+    """
+    allowed = bool(get_config().get("tools.allow_dangerous_in_hud", False))
+    if not allowed:
+        console.print(f"[yellow]🔒 HUD blocked dangerous tool '{tool_name}' (set tools.allow_dangerous_in_hud=true to permit).[/yellow]")
+    return allowed
+
+
+brain_router.confirm_callback = _hud_confirm
 
 app = FastAPI(title="Project Victoria HUD API", version="2.0")
 
@@ -73,8 +97,8 @@ def _on_hud_voice_event(payload: dict):
         _current_voice_state = "IDLE" if st == "STANDBY" else st
 
 try:
-    from victoria.voice.voice_events import VoiceEventListener
-    _voice_event_listener = VoiceEventListener(on_event=_on_hud_voice_event)
+    from victoria.voice.voice_events import VoiceEventListener, HUD_EVENT_PORT
+    _voice_event_listener = VoiceEventListener(on_event=_on_hud_voice_event, port=HUD_EVENT_PORT)
     _voice_event_listener.start()
 except Exception:
     pass
@@ -122,8 +146,9 @@ async def chat(req: ChatRequest):
 
     session_id = "hud_web_session"
 
-    # Brain thoughts & tool execution in thread so it doesn't block event loop
-    response_text = await asyncio.to_thread(brain_router.think, user_text)
+    # Brain thoughts & tool execution in thread so it doesn't block event loop.
+    # A lock serializes concurrent chats (router conversation state is shared).
+    response_text = await asyncio.to_thread(_locked_think, user_text)
 
     # Save to memory
     if memory.enabled:
@@ -161,8 +186,11 @@ async def chat(req: ChatRequest):
 @app.get("/api/audio/{filename}")
 def get_audio(filename: str):
     """Stream generated TTS speech audio file."""
-    audio_path = AUDIO_CACHE_DIR / filename
-    if not audio_path.exists():
+    name = Path(filename).name
+    if not name or name in {".", ".."} or name != filename:
+        raise HTTPException(status_code=400, detail="Invalid audio filename")
+    audio_path = AUDIO_CACHE_DIR / name
+    if not audio_path.exists() or not audio_path.is_file():
         raise HTTPException(status_code=404, detail="Audio file not found")
     return FileResponse(str(audio_path), media_type="audio/mpeg")
 
@@ -197,10 +225,13 @@ def list_reports():
 @app.get("/api/reports/{filename}")
 def get_report_content(filename: str):
     """Get markdown content of a teardown report."""
-    filepath = TEARDOWNS_DIR / filename
-    if not filepath.exists():
+    name = Path(filename).name
+    if not name or name in {".", ".."} or name != filename:
+        raise HTTPException(status_code=400, detail="Invalid report filename")
+    filepath = TEARDOWNS_DIR / name
+    if not filepath.exists() or not filepath.is_file():
         raise HTTPException(status_code=404, detail="Report not found")
-    return {"filename": filename, "content": filepath.read_text(encoding="utf-8", errors="ignore")}
+    return {"filename": name, "content": filepath.read_text(encoding="utf-8", errors="ignore")}
 
 
 @app.post("/api/action")
@@ -220,8 +251,13 @@ def perform_action(req: ActionRequest):
         res = audio_control.set_volume("mute")
         return {"status": "ok", "result": res}
     elif act == "switch_model" and req.value:
-        brain_router.switch_model(req.value)
-        get_config().set_active_model(req.value, persist=True)
+        if req.value not in get_config().get("brain.models", {}):
+            raise HTTPException(status_code=400, detail=f"Unknown model: {req.value}")
+        try:
+            brain_router.switch_model(req.value)
+            get_config().set_active_model(req.value, persist=True)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
         return {"status": "ok", "result": f"Switched to {req.value}"}
     return {"status": "unknown_action"}
 
@@ -285,12 +321,12 @@ def get_voice_status():
 @app.post("/api/voice/enroll")
 async def trigger_voice_enroll():
     """Trigger interactive voice print enrollment recording sequence."""
-    from victoria.voice.tts import TextToSpeech
+    from victoria.voice.tts import get_tts
     from victoria.voice.voice_events import broadcaster
     from victoria.voice.voice_onboarding import run_first_time_voice_enrollment
     import asyncio
 
-    tts = TextToSpeech()
+    tts = get_tts()
     loop = asyncio.get_event_loop()
     success = await loop.run_in_executor(None, run_first_time_voice_enrollment, tts, broadcaster, False)
     return {"status": "ok" if success else "failed", "enrolled": success}
@@ -336,6 +372,13 @@ def use_discovered_model(req: UseModelRequest):
         cfg.set_opencode_model(model_id)
     elif provider == "gemini":
         cfg.set_gemini_model(model_id)
+    else:
+        # groq / openai / sarvam / ollama: persist through the generic
+        # custom-model env mapping so the choice survives restarts.
+        try:
+            cfg.set_custom_model(config_key, model_id)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Could not persist model: {e}")
 
     # In-memory config is updated; dynamic selection persists via .env to preserve YAML comments
     brain_router.reload_provider(config_key)

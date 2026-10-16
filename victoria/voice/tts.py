@@ -124,6 +124,9 @@ class TextToSpeech:
         from victoria.config import PROJECT_ROOT
         self._cache_dir = PROJECT_ROOT / "data" / "audio_cache"
         self._cache_dir.mkdir(parents=True, exist_ok=True)
+        # Temp dir for generated piper/espeak wav files
+        self._temp_dir = str(self._cache_dir / "tmp")
+        os.makedirs(self._temp_dir, exist_ok=True)
 
         self._current_player: Optional[subprocess.Popen] = None
 
@@ -160,6 +163,24 @@ class TextToSpeech:
                 console.print(f"[yellow]⚠️ Could not persist voice setting: {e}[/yellow]")
 
         return v_key, v_info["name"]
+
+    def reload_voice_from_config(self) -> tuple[str, str]:
+        """
+        Re-read the persisted voice settings from config (used by the always-on
+        voice daemon when the HUD switches voices in another process).
+        Does not persist anything.
+        """
+        cfg = get_config()
+        tts_cfg = cfg.tts_config
+        self.edge_config = tts_cfg.get("edge_tts", {})
+        configured_voice = self.edge_config.get("voice", "hi-IN-SwaraNeural")
+        self.current_voice_key = "swara"
+        for k, v in FEMALE_VOICES.items():
+            if v["id"] == configured_voice:
+                self.current_voice_key = k
+                break
+        console.print(f"[cyan]🔄 Voice reloaded from config: {self.get_current_voice_name()}[/cyan]")
+        return self.current_voice_key, self.get_current_voice_name()
 
     def cycle_next_voice(self, persist: bool = True) -> tuple[str, str]:
         """Cycle to the next available female voice."""
@@ -577,4 +598,20 @@ class TextToSpeech:
             shutil.rmtree(self._temp_dir, ignore_errors=True)
 
     def __del__(self):
-        self.cleanup()
+        try:
+            self.cleanup()
+        except Exception:
+            pass
+
+
+# Process-wide TTS singleton: one shared player so stop_assistant_speech and
+# switch_assistant_voice always act on the audio that is actually playing.
+_tts_singleton: Optional["TextToSpeech"] = None
+
+
+def get_tts() -> "TextToSpeech":
+    """Get the shared TextToSpeech instance for this process."""
+    global _tts_singleton
+    if _tts_singleton is None:
+        _tts_singleton = TextToSpeech()
+    return _tts_singleton

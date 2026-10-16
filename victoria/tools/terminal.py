@@ -6,6 +6,7 @@ shutdown, and destructive data loss prevention.
 
 import re
 import subprocess
+from typing import Optional
 from victoria.config import get_config
 
 # 1. HARD BLOCKED REBOOT & SHUTDOWN COMMANDS
@@ -42,6 +43,9 @@ DATA_REMOVAL_PATTERNS = [
     r"shutil\.(?:rmtree)",                                 # python recursive directory deletion
     r"Path\([^)]+\)\.unlink",                              # pathlib unlink
     r"(?:os\.system|subprocess)\b.*?['\"].*?(?:rm\s+|reboot|shutdown)", # shell injection tricks
+    r"\bgit\s+clean\b",                                    # git clean -fd wipes untracked files
+    r"(?:^|[;&|]\s*):\s*>\s*\S",                           # `: > file` truncation
+    r"\bcp\s+(?:-f\s+)?/dev/null\s+\S",                    # copy /dev/null over a file (truncation)
 ]
 
 REBOOT_LOCK_MESSAGE = (
@@ -54,6 +58,22 @@ DATA_SECURITY_LOCK_MESSAGE = (
     "🛡️ डेटा सुरक्षा लॉक सक्रिय: हरिओम जी, आपके सिस्टम से किसी भी फ़ाइल या डेटा को हटाना (remove/delete) "
     "सुरक्षा नीति के तहत सख्त वर्जित है ताकि कोई डेटा डिलीट न हो। आपका डेटा 100% सुरक्षित है। कोई भी फ़ाइल हटाई नहीं गई है।"
 )
+
+
+def check_command_safety(command: str) -> Optional[str]:
+    """
+    Return the security-block message if the command violates the reboot or
+    data-protection locks, otherwise None. Shared by the terminal tool, the IDE
+    run endpoint, and the custom-script runner.
+    """
+    cmd_lower = (command or "").strip().lower()
+    for pat in REBOOT_SHUTDOWN_PATTERNS:
+        if re.search(pat, cmd_lower):
+            return REBOOT_LOCK_MESSAGE
+    for pat in DATA_REMOVAL_PATTERNS:
+        if re.search(pat, cmd_lower):
+            return DATA_SECURITY_LOCK_MESSAGE
+    return None
 
 
 def run_command(command: str, timeout: int = 30, confirmed: bool = False) -> str:
@@ -71,15 +91,10 @@ def run_command(command: str, timeout: int = 30, confirmed: bool = False) -> str
     cmd_strip = command.strip()
     cmd_lower = cmd_strip.lower()
 
-    # 1. HARD SECURITY CHECK: System Reboot & Shutdown Lock (NEVER allowed, even if confirmed=True)
-    for pat in REBOOT_SHUTDOWN_PATTERNS:
-        if re.search(pat, cmd_lower):
-            return REBOOT_LOCK_MESSAGE
-
-    # 2. HARD SECURITY CHECK: Data Loss Prevention & File Removal Lock (NEVER allowed silently)
-    for pat in DATA_REMOVAL_PATTERNS:
-        if re.search(pat, cmd_lower):
-            return DATA_SECURITY_LOCK_MESSAGE
+    # 1 & 2. HARD SECURITY CHECKS: reboot/shutdown lock + data loss prevention
+    blocked = check_command_safety(cmd_strip)
+    if blocked:
+        return blocked
 
     # 3. Configured dangerous commands check for other commands requiring confirmation
     cfg = get_config()

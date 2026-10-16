@@ -84,6 +84,7 @@ SANITY_FILES = [
     "victoria/brain/router.py", "victoria/brain/tools.py",
     "victoria/brain/model_discovery.py",
     "victoria/brain/mcp_client.py", "victoria/brain/mcp_bridge.py",
+    "victoria/mcp/server.py",
     "victoria/hud/server.py", "victoria/hud/ide_api.py",
     "victoria/hud/static/index.html", "victoria/hud/static/ide.html",
     "victoria/hud/static/js/app.js", "victoria/hud/static/js/ide.js",

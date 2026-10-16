@@ -15,6 +15,20 @@ console = Console()
 PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config" / "victoria.yaml"
 
+# Env keys used to persist user-selected custom model ids per config model key
+# (mirrors the existing OpenRouter/OpenCode/Gemini pattern; keeps YAML comments).
+CUSTOM_MODEL_ENV = {
+    "openrouter": "OPENROUTER_CUSTOM_MODEL",
+    "opencode": "OPENCODE_CUSTOM_MODEL",
+    "gemini": "GEMINI_CUSTOM_MODEL",
+    "gemini_pro": "GEMINI_CUSTOM_MODEL",
+    "groq": "GROQ_CUSTOM_MODEL",
+    "openai_gpt4o": "OPENAI_CUSTOM_MODEL",
+    "sarvam": "SARVAM_CUSTOM_MODEL",
+    "local_fast": "OLLAMA_CUSTOM_MODEL",
+    "local_coder": "OLLAMA_CODER_MODEL",
+}
+
 
 class VictoriaConfig:
     """Central configuration manager for Victoria."""
@@ -188,6 +202,12 @@ class VictoriaConfig:
             custom_model = os.environ.get("GEMINI_CUSTOM_MODEL")
             if custom_model:
                 model_cfg["model"] = custom_model
+        else:
+            env_name = CUSTOM_MODEL_ENV.get(model_name)
+            if env_name:
+                custom_model = os.environ.get(env_name)
+                if custom_model:
+                    model_cfg["model"] = custom_model
 
         return model_cfg
 
@@ -214,6 +234,17 @@ class VictoriaConfig:
             if "gemini" in self._raw["brain"]["models"]:
                 self._raw["brain"]["models"]["gemini"]["model"] = model_id
         console.print(f"[green]✨ Gemini model set to: {model_id}[/green]")
+
+    def set_custom_model(self, model_key: str, model_id: str):
+        """Persist a discovered model id for a config model key via its .env override."""
+        env_name = CUSTOM_MODEL_ENV.get(model_key)
+        if not env_name:
+            raise ValueError(f"No custom-model env mapping for '{model_key}'")
+        self.save_env_variable(env_name, model_id)
+        if "brain" in self._raw and "models" in self._raw["brain"]:
+            if model_key in self._raw["brain"]["models"]:
+                self._raw["brain"]["models"][model_key]["model"] = model_id
+        console.print(f"[green]🧠 {model_key} model set to: {model_id}[/green]")
 
     def get_active_model_name(self) -> str:
         """Get the name of the currently active model."""

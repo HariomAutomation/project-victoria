@@ -5,7 +5,7 @@ and handles model switching at runtime.
 """
 
 import re
-from typing import Optional, Any
+from typing import Optional, Any, Callable
 from rich.console import Console
 
 from victoria.config import get_config
@@ -38,6 +38,30 @@ def _import_provider_class(dotted_path: str):
     return getattr(module, class_name)
 
 
+# Prefixes with which providers report transport/API failures inside
+# `BrainResponse.text`. Only these (or explicit connection errors) count as
+# provider failures — a normal answer that merely mentions words like "token",
+# "quota" or "503" must never be hijacked as an error.
+_PROVIDER_ERROR_PREFIXES = (
+    "API error:",
+    "Gemini connection error:",
+    "Ollama error:",
+    "OpenCode error:",
+    "OpenCode provider error:",
+    "Provider error:",
+)
+
+
+def _response_is_provider_error(text: Any) -> bool:
+    """True when a provider returned an error message as its response text."""
+    if not text:
+        return False
+    s = str(text).strip()
+    if s.startswith(_PROVIDER_ERROR_PREFIXES):
+        return True
+    return "connection error:" in s.lower()
+
+
 class BrainRouter:
     """
     The central brain of Victoria.
@@ -61,6 +85,11 @@ class BrainRouter:
         self._active_model: str = ""
         self._conversation: list[Message] = []
         self._max_tool_loops = 10  # Prevent infinite tool loops
+
+        # Host-provided confirmation hook for dangerous tools:
+        #   confirm_callback(tool_name, arguments) -> bool
+        # When None (HUD/MCP/headless contexts), dangerous tools are DENIED.
+        self.confirm_callback: Optional[Callable[[str, dict], bool]] = None
 
         cfg = get_config()
         self._active_model = cfg.get_active_model_name()
@@ -120,6 +149,24 @@ class BrainRouter:
             "daily free tier", "queue full", "unavailable for free", "not a valid model id",
         ]
         return any(k in s for k in keywords)
+
+    def _confirm_dangerous_tool(self, tool_name: str, arguments: Any) -> bool:
+        """
+        Ask the host environment (voice loop / CLI) to confirm a dangerous tool.
+
+        Fail-closed: if no confirmation callback is registered (HUD, MCP server,
+        headless contexts), the dangerous tool is denied instead of silently run.
+        """
+        if self.confirm_callback is None:
+            console.print(
+                f"[yellow]🔒 Dangerous tool '{tool_name}' blocked: no confirmation channel available.[/yellow]"
+            )
+            return False
+        try:
+            return bool(self.confirm_callback(tool_name, arguments))
+        except Exception as e:
+            console.print(f"[yellow]⚠️ Confirmation failed for '{tool_name}': {e}[/yellow]")
+            return False
 
     def _get_fallback_candidates(self) -> list[str]:
         """
@@ -297,23 +344,12 @@ class BrainRouter:
                         system_prompt=full_system_prompt,
                     )
 
-                    # Check if response text is an error indicating quota/rate limit/outage (e.g. 503, 429)
+                    # Fail over only on REAL provider error messages. A normal answer
+                    # that merely mentions "token", "quota", "503" etc. must pass through.
                     resp_str = str(response.text or "")
-                    err_lower = resp_str.lower()
-                    is_api_err = (
-                        resp_str.startswith("API error:")
-                        or resp_str.startswith("Gemini connection error:")
-                        or "connection error:" in err_lower
-                        or self._is_quota_or_rate_limit(resp_str)
-                    )
-                    if is_api_err and (
-                        self._is_quota_or_rate_limit(resp_str)
-                        or "not available" in err_lower
-                        or "not a valid" in err_lower
-                        or "503" in resp_str
-                        or "404" in resp_str
-                        or "429" in resp_str
-                    ):
+                    if _response_is_provider_error(resp_str):
+                        if self._is_quota_or_rate_limit(resp_str):
+                            console.print("[yellow]⚠️ Provider quota/limit issue detected. Trying next available model...[/yellow]")
                         raise RuntimeError(resp_str)
 
                     # If there are tool calls, execute them
@@ -342,13 +378,20 @@ class BrainRouter:
                                     result = f"Error switching model: {str(e)}"
                             else:
                                 cfg = get_config()
-                                if self.tool_registry.is_dangerous(tool_call.name) and cfg.get("tools.confirm_dangerous", True):
-                                    pass
-
-                                result = self.tool_registry.execute(
-                                    tool_call.name,
-                                    tool_call.arguments,
-                                )
+                                if (
+                                    self.tool_registry.is_dangerous(tool_call.name)
+                                    and cfg.get("tools.confirm_dangerous", True)
+                                    and not self._confirm_dangerous_tool(tool_call.name, tool_call.arguments)
+                                ):
+                                    result = (
+                                        f"⛔ '{tool_call.name}' एक संवेदनशील (dangerous) टूल है और मालिक की पुष्टि नहीं मिली, "
+                                        "इसलिए इसे execute नहीं किया गया।"
+                                    )
+                                else:
+                                    result = self.tool_registry.execute(
+                                        tool_call.name,
+                                        tool_call.arguments,
+                                    )
 
                             # Add tool result to history
                             self._conversation.append(Message(
@@ -439,6 +482,10 @@ class BrainRouter:
         if len(self._conversation) > max_messages:
             # Keep the most recent messages
             self._conversation = self._conversation[-max_messages:]
+            # Never start with orphaned tool results: providers expect a preceding
+            # assistant(tool_calls) message and will reject a leading tool message.
+            while self._conversation and self._conversation[0].role == "tool":
+                self._conversation.pop(0)
 
     def clear_conversation(self):
         """Clear conversation history."""
@@ -492,13 +539,13 @@ class BrainRouter:
                 "ताकि आपका कोई भी डेटा या कार्य नष्ट न हो। विक्टोरिया कभी भी आपके कंप्यूटर को रीबूट या बंद नहीं करेगी।"
             )
 
-        # 00c. Victoria Assistant Restart & Refresh (Disambiguation: "restart", "relaunch", "रीस्टार्ट करो")
-        assistant_restart_triggers = [
-            "restart", "relaunch", "re-launch", "restart victoria", "victoria restart", "restart assistant",
-            "रीस्टार्ट", "रिलांच", "रीस्टार्ट करो", "विक्टोरिया रीस्टार्ट", "असिस्टेंट रीस्टार्ट",
-            "विक्टोरिया को रीस्टार्ट करो", "विक्टोरिया रीस्टार्ट करो"
-        ]
-        if any(w in t for w in assistant_restart_triggers):
+        # 00c. Victoria Assistant Restart & Refresh — only an explicit restart COMMAND
+        # reloads the assistant. A question that merely mentions the word "restart"
+        # (e.g. "restart ka matlab kya hai") must fall through to the AI.
+        restart_word = re.search(r"\b(restart|relaunch|re-launch)\b", t) or re.search(r"(रीस्टार्ट|रिलांच)", t)
+        restart_command = any(w in t for w in ["karo", "kar do", "kar de", "करो", "कर दो", "victoria", "असिस्टेंट", "assistant", "please", "plz"])
+        restart_question = any(q in t for q in ["kya", "kyun", "kyu", "kaise", "kab", "matlab", "why", "what", "how", "meaning", "batao", "samjhao", "बताओ", "समझाओ"])
+        if restart_word and (restart_command or len(t.split()) <= 2) and not restart_question:
             self.reload_provider()
             self._conversation.clear()
             return (
@@ -533,8 +580,16 @@ class BrainRouter:
         if any(w in t for w in ["kaise ho", "kya haal", "sun rahi ho", "kaha ho", "hello", "namaste", "namashkar"]):
             return "जी हरिओम! मैं हमेशा सक्रिय हूँ, आपकी आवाज़ सुन रही हूँ और बिल्कुल ठीक हूँ। बताइए, आज क्या काम करना है?"
 
-        # 2. System Hardware Status (Battery, CPU, RAM)
-        if any(w in t for w in ["status", "system", "battery", "ram", "cpu", "storage", "disk"]) and not any(w in t for w in ["lock", "unlock"]):
+        # 2. System Hardware Status (Battery, CPU, RAM) — only for explicit status queries
+        hardware_terms = ["battery", "ram", "cpu", "storage", "disk", "system", "hardware", "gpu", "temperature", "temp", "memory", "बैटरी", "रैम", "सीपीयू", "स्टोरेज", "डिस्क", "सिस्टम", "तापमान", "मेमोरी"]
+        status_queries = ["status", "kitna", "kitni", "kitne", "check", "batao", "bata do", "info", "usage", "space", "percent", "%", "how much", "बताओ", "जांच", "चेक", "कितना", "कितनी", "स्थिति", "स्टेटस"]
+        concept_question = ["kya", "kaise", "kyun", "matlab", "what is", "why", "how", "क्या", "कैसे", "मतलब"]
+        if (
+            any(w in t for w in hardware_terms)
+            and any(w in t for w in status_queries)
+            and not any(q in t for q in concept_question)
+            and not any(w in t for w in ["lock", "unlock"])
+        ):
             try:
                 res = self.tool_registry.execute("get_system_info", {})
                 return f"हरिओम जी, सिस्टम का स्टेटस यह रहा:\n{res}"
@@ -551,7 +606,7 @@ class BrainRouter:
         ]
         if any(w in t for w in unlock_triggers):
             from victoria.tools.system_lock import unlock_system_by_voice
-            res = unlock_system_by_voice(similarity=0.88)
+            res = unlock_system_by_voice()
             return res.get("message", "जी हरिओम! आपकी आवाज़ सत्यापित हो गई है। सिस्टम स्क्रीन अनलॉक कर दी गई है।")
 
         lock_triggers = [
@@ -671,17 +726,23 @@ class BrainRouter:
                 return f"Screenshot लेने में त्रुटि आई: {e}"
 
         # 5. Application Launching (Chrome, Terminal, Code, Calc)
-        if any(w in t for w in ["kholo", "open", "launch", "chalao"]):
+        app_question = any(q in t for q in ["kya", "kaise", "kyun", "kyu", "matlab", "what", "why", "how", "meaning", "बताओ", "क्या", "कैसे"])
+        if any(w in t for w in ["kholo", "open", "launch", "chalao"]) and not app_question:
             for app in ["chrome", "terminal", "code", "firefox", "calculator", "files", "vlc"]:
-                if app in t:
+                if re.search(rf"(?<!\w){app}(?!\w)", t):
                     try:
                         self.tool_registry.execute("open_application", {"app_name": app})
                         return f"जी हरिओम, {app} खोल दिया गया है।"
                     except Exception as e:
                         return f"{app} शुरू करने में त्रुटि आई: {e}"
 
-        # 6. Memory & Owner Persona Recall
-        if any(w in t for w in ["mera naam", "mere bare", "memory", "yaad", "vault", "profile"]):
+        # 6. Memory & Owner Persona Recall — only explicit "about me" queries
+        memory_triggers = [
+            "mera naam", "mere bare", "mere baare", "mere baare mein", "about me", "my profile",
+            "meri profile", "meri memory", "mere preferences", "meri pasand", "meri napasand",
+            "kya yaad hai", "mujhe kya yaad", "मेरा नाम", "मेरे बारे", "मेरी प्रोफाइल", "मेरी पसंद", "मुझे क्या याद",
+        ]
+        if any(w in t for w in memory_triggers):
             try:
                 memories = self.owner_vault.get_relevant_context(t)
                 if memories:
@@ -692,7 +753,13 @@ class BrainRouter:
                 pass
 
         # 7. Reverse Engineering & Clone Builder (Mor Luto REA Superpower)
-        if re.search(r"\b(?:reverse\s*engineer|teardown|rea|clone|deconstruct)\b", t, re.IGNORECASE):
+        # "clone" only counts in a web-target context, so "git clone ..." questions
+        # and ordinary clone talk never trigger a teardown.
+        rea_word = re.search(r"\b(?:reverse\s*engineer|teardown|rea|deconstruct)\b", t, re.IGNORECASE)
+        clone_web = re.search(r"\bclone\b", t, re.IGNORECASE) and any(
+            w in t for w in ["website", "site", "web", "frontend", "app", "page", "url"]
+        )
+        if rea_word or clone_web:
             url_match = re.search(r'(https?://[^\s]+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:/[^\s]*)?)', text)
             if url_match:
                 target = url_match.group(1).rstrip(",.!?")

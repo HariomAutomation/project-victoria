@@ -12,6 +12,7 @@ authors = [
 
 [project.scripts]
 victoria = "victoria.main:main"
+victoria-mcp = "victoria.mcp.server:main"
 
 [tool.setuptools.packages.find]
 include = ["victoria*"]

@@ -10,6 +10,7 @@ the model unchanged.
 
 from __future__ import annotations
 
+import atexit
 from typing import Optional
 
 from rich.console import Console
@@ -51,6 +52,8 @@ def connect_and_register(registry, spec: dict, default_prefix: Optional[str] = N
         request_timeout=spec.get("timeout", 300),
     )
     client.start()
+    # Make sure the server subprocess is stopped on interpreter exit.
+    atexit.register(client.stop)
     client.initialize()
     tools = client.list_tools()
 

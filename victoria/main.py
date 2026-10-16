@@ -59,6 +59,22 @@ def run_text_mode(router: BrainRouter, memory: ConversationMemory):
 
     session_id = f"cli_{os.getpid()}"
 
+    # 🔐 Dangerous-tool confirmation gate for text mode (fail-closed on error)
+    def _text_confirm(tool_name: str, arguments: dict) -> bool:
+        try:
+            from rich.prompt import Prompt as _Prompt
+            detail = str(arguments)[:160]
+            ans = _Prompt.ask(
+                f"[bold yellow]⚠️ Dangerous tool '{tool_name}' {detail} — execute?[/bold yellow]",
+                choices=["y", "n"],
+                default="n",
+            )
+            return ans.strip().lower() == "y"
+        except Exception:
+            return False
+
+    router.confirm_callback = _text_confirm
+
     while True:
         try:
             user_input = Prompt.ask("\n[bold cyan]You[/bold cyan]").strip()
@@ -113,16 +129,39 @@ def run_voice_mode(router: BrainRouter, memory: ConversationMemory):
         from victoria.voice.wake_word import WakeWordDetector
         from victoria.voice.listener import AudioListener
         from victoria.voice.stt import SpeechToText
-        from victoria.voice.tts import TextToSpeech
+        from victoria.voice.tts import get_tts
         from victoria.voice.speaker_verify import SpeakerVerifier
-        from victoria.voice.voice_events import broadcaster
+        from victoria.voice.voice_events import broadcaster, VoiceCommandListener
 
         cfg = get_config()
         wake_detector = WakeWordDetector()
         listener = AudioListener()
         stt = SpeechToText()
-        tts = TextToSpeech()
+        tts = get_tts()
         verifier = SpeakerVerifier()
+
+        # 🔐 Dangerous-tool confirmation gate (voice): speak a question and
+        # listen for a yes/no answer before any sensitive tool executes.
+        def _voice_confirm(tool_name: str, arguments: dict) -> bool:
+            try:
+                q = f"सुरक्षा पुष्टि: क्या मैं '{tool_name}' टूल चलाऊँ? हाँ या ना बोलिए।"
+                broadcaster.speaking(text=q)
+                tts.speak(q, interruptible=False, listener=listener, broadcaster=broadcaster)
+                confirm_audio = listener.record_until_silence()
+                if confirm_audio is None:
+                    return False
+                answer, _, _ = stt.transcribe(confirm_audio)
+                answer = (answer or "").lower()
+                no_words = ["नहीं", "नही", "ना ", "na ", "no", "mat karo", "मत करो", "cancel", "रुक"]
+                if any(w in answer for w in no_words):
+                    return False
+                yes_words = ["haan", "हाँ", "हां", "yes", "करो", "कर दो", "ठीक", "theek", "approve", "ok", "okay"]
+                return any(w in answer for w in yes_words)
+            except Exception as e:
+                console.print(f"[yellow]⚠️ Voice confirmation failed: {e}[/yellow]")
+                return False
+
+        router.confirm_callback = _voice_confirm
 
         # Auto-launch JARVIS Floating Holographic Arc Reactor widget if display is available
         if os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"):
@@ -153,6 +192,24 @@ def run_voice_mode(router: BrainRouter, memory: ConversationMemory):
         session_id = f"voice_{os.getpid()}"
         import threading
         stop_event = threading.Event()
+        manual_wake = threading.Event()
+
+        def _on_voice_command(cmd: dict):
+            name = (cmd or {}).get("command", "")
+            if name == "trigger_listen":
+                manual_wake.set()
+            elif name == "stop_speech":
+                tts.stop()
+            elif name == "reload_voice":
+                tts.reload_voice_from_config()
+
+        command_listener = None
+        try:
+            command_listener = VoiceCommandListener(on_command=_on_voice_command)
+            command_listener.start()
+            console.print("[dim]🎛️ Widget/HUD command channel active (port 49381).[/dim]")
+        except Exception as e:
+            console.print(f"[dim]Voice command listener notice: {e}[/dim]")
 
         # Emit initial standby event
         broadcaster.standby()
@@ -160,15 +217,19 @@ def run_voice_mode(router: BrainRouter, memory: ConversationMemory):
         while not stop_event.is_set():
             # 1. Wait for wake word to initiate conversation
             console.print(f"[dim]Waiting for '{wake_phrase}' / 'विक्टोरिया'...[/dim]")
-            wake_audio = wake_detector.wait_for_wake_word(stop_event)
-            if wake_audio is None:
+            wake_audio = wake_detector.wait_for_wake_word(stop_event, wake_event=manual_wake)
+            manual_trigger = manual_wake.is_set()
+            if manual_trigger:
+                manual_wake.clear()
+            if wake_audio is None and not manual_trigger:
                 continue
 
             console.print("[bold cyan]⚡ Wake word detected! Entering active two-way conversation mode...[/bold cyan]")
             broadcaster.wake()
 
-            # Speaker verification on wake word: Ensure it is Hariom waking Victoria (threshold 0.45)
-            if verifier.is_enrolled():
+            # Speaker verification on wake word: Ensure it is Hariom waking Victoria (threshold 0.45).
+            # Manual wakes (widget click-to-listen) carry no audio, so they skip this check.
+            if verifier.is_enrolled() and wake_audio is not None:
                 is_owner, similarity = verifier.verify(wake_audio, threshold=0.45)
                 console.print(f"[dim]Wake speaker similarity: {similarity:.2f}[/dim]")
                 if not is_owner:
@@ -221,8 +282,9 @@ def run_voice_mode(router: BrainRouter, memory: ConversationMemory):
                         continue
 
                     dur_sec = len(audio_data) / listener.sample_rate
-                    # Adaptive threshold: Short utterances (< 2.2s) or barge-in interruptions get 0.40 to prevent false rejects; longer get 0.44
-                    req_thresh = 0.40 if (interrupted_audio is not None or dur_sec < 2.2) else 0.44
+                    # Adaptive threshold: short utterances (< 2.2s) get 0.40 to
+                    # prevent false rejects; longer ones require 0.44.
+                    req_thresh = 0.40 if dur_sec < 2.2 else 0.44
                     is_owner, similarity = verifier.verify(audio_data, threshold=req_thresh)
                     console.print(f"[dim]Speaker similarity: {similarity:.2f} (threshold: {req_thresh})[/dim]")
                     if not is_owner:
@@ -434,6 +496,12 @@ def run_voice_mode(router: BrainRouter, memory: ConversationMemory):
     except Exception as e:
         console.print(f"[red]Voice mode error: {e}[/red]")
         time.sleep(2)
+    finally:
+        try:
+            if command_listener is not None:
+                command_listener.stop()
+        except Exception:
+            pass
 
 
 def main():

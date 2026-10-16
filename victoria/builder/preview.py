@@ -39,9 +39,9 @@ class LivePreviewServer:
                 super().__init__(*args, directory=directory, **kwargs)
 
         try:
-            # Allow address reuse
-            socketserver.TCPServer.allow_reuse_address = True
-            self._server = socketserver.TCPServer(("", port), CustomHandler)
+            # Allow address reuse; bind to localhost only (never expose previews on the LAN)
+            socketserver.ThreadingTCPServer.allow_reuse_address = True
+            self._server = socketserver.ThreadingTCPServer(("127.0.0.1", port), CustomHandler)
             self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
             self._thread.start()
 

@@ -22,37 +22,48 @@ FRIENDLY_NAMES = {
 }
 
 MODEL_PATTERNS = [
-    # Google Gemini & 3.8 / 3.5 Flash variants
-    (r"(3\.8|३\.८|gemini\s*3\.8|gemini|जेमिनी|गेमिनी|google|3\.5|३\.५|flash|lite)", "gemini", "Google Gemini Flash"),
+    # Google Gemini (strict: bare "google"/"flash"/"lite"/"3.5" must NOT switch models)
+    (r"(gemini|जेमिनी|गेमिनी|gemeni|google\s*gemini)", "gemini", "Google Gemini Flash"),
     # DeepSeek
     (r"(deep\s*seek|डीप\s*सीक|दीप\s*सीक|डिप\s*सिक)", "opencode_deepseek", "DeepSeek V4.1 Flash"),
     # Xiaomi MiMo
-    (r"(mi\s*mo|मीमो|मईमो|xiaomi|शाओमी)", "opencode_mimo", "Xiaomi MiMo"),
+    (r"(\bmi\s*mo\b|मीमो|मईमो|xiaomi|शाओमी)", "opencode_mimo", "Xiaomi MiMo"),
     # OpenCode General
     (r"(open\s*code|ओपन\s*कोड)", "opencode", "OpenCode"),
     # NVIDIA Nemotron
-    (r"(nemo\s*tron|नेमोट्रॉन|nvidia)", "opencode_nemotron", "NVIDIA Nemotron 3.5"),
+    (r"(nemo\s*tron|नेमोट्रॉन|nvidia\s+(?:nemotron|ai|model))", "opencode_nemotron", "NVIDIA Nemotron 3.5"),
     # GLM
-    (r"(glm|जीएलएम)", "opencode_glm", "GLM 5.3 Flash"),
+    (r"(\bglm\b|जीएलएम)", "opencode_glm", "GLM 5.3 Flash"),
     # OpenRouter
     (r"(open\s*router|ओपन\s*राउटर)", "openrouter", "OpenRouter"),
     # Sarvam AI
     (r"(sarvam|सर्वम|सरवम)", "sarvam", "Sarvam AI"),
-    # Ollama / Local
-    (r"(ollama|ओलामा|local)", "local_fast", "Ollama Local"),
+    # Ollama / Local (bare "local" only when clearly about the model/engine)
+    (r"(ollama|ओलामा|local\s+(?:model|ai|brain|llm|engine))", "local_fast", "Ollama Local"),
+]
+
+# Question markers: a conceptual question about a model must never trigger a switch.
+_QUESTION_MARKERS = [
+    "kya hota", "kya hai", "क्या होता", "क्या है", "matlab", "meaning",
+    "what is", "difference", "antar", "explain", "samjhao", "समझाओ",
 ]
 
 CONFIRM_CURRENT_PATTERNS = [
     r"यही\s*(ठीक|रहने\s*दो|चलेगा|सही)",
-    r"इसी\s*(पर|से|मॉडल|पे)?",
+    r"इसी\s*(पर|मॉडल|पे)",
     r"\byahi\s*(theek|sahi|rehne\s*do|chalega)\b",
-    r"\bisi\s*(par|se|pe|model)?\b",
+    r"\bisi\s*(par|pe|model)\b",
     r"\b(?:ec|e\.c\.|isi|ispe|iss)\s*model\b",
-    r"\b(theek\s*hai|thik\s*hai|chalega|aage\s*badho|shuru\s*karo)\b",
-    r"\bcontinue\b",
-    r"\bproceed\b",
-    r"\bstart\b",
-    r"\bsame\b",
+    r"\b(theek\s*hai|thik\s*hai|sahi\s*hai|chalega)\b",
+    r"\b(?:continue|proceed)\s*(?:karo|kar\s*do|kro|karna)\b",
+]
+
+# Words that indicate the user actually wants a task done — a sentence mixing a
+# confirmation phrase with a task must go to the AI instead of being swallowed.
+_TASK_ACTION_WORDS = [
+    "kholo", "खोलो", "chalao", "चलाओ", "banao", "बनाओ", "band", "बंद",
+    "play", "open", "run", "likho", "लिखो", "search", "dhundo", "ढूंढो",
+    "dikhao", "दिखाओ", "bhejo", "भेजो", "download", "delete", "set",
 ]
 
 
@@ -69,6 +80,8 @@ def detect_model_choice(text: str) -> Optional[Tuple[str, str]]:
     if not text:
         return None
     text_lower = text.lower()
+    if any(m in text_lower for m in _QUESTION_MARKERS):
+        return None
     for pattern, key, name in MODEL_PATTERNS:
         if re.search(pattern, text_lower):
             return key, name
@@ -79,7 +92,12 @@ def is_confirm_current(text: str) -> bool:
     """Check if the user wants to stay on the current active model."""
     if not text:
         return False
-    text_lower = text.lower()
+    text_lower = text.lower().strip()
+    # A long sentence or one containing a real task action is NOT a confirmation.
+    if len(text_lower.split()) > 6:
+        return False
+    if any(w in text_lower for w in _TASK_ACTION_WORDS):
+        return False
     return any(re.search(p, text_lower) for p in CONFIRM_CURRENT_PATTERNS)
 
 

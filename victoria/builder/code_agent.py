@@ -62,15 +62,22 @@ class CodeBuilderAgent:
         ]
 
         seen_paths = set()
+        allowed_methods = {"get", "post", "put", "delete", "patch", "head", "options"}
         for i, ep in enumerate(endpoints[:30]):
             url = ep.get("url", "")
-            method = ep.get("method", "GET").lower()
+            method = str(ep.get("method", "GET") or "GET").lower()
+            if method not in allowed_methods:
+                # An unknown/empty method would generate an invalid decorator
+                method = "get"
             # Extract path
             path = re.sub(r"^https?://[^/]+", "", url)
             if not path or path == "/":
                 continue
-            # Sanitize path for FastAPI
+            # Sanitize path for FastAPI (strip query, escape quotes/newlines)
             path = re.sub(r"\?.*$", "", path)
+            path = path.replace("'", "%27").replace('"', "%22").replace("\n", "").replace("\r", "")
+            if not path.startswith("/"):
+                path = "/" + path
             if path in seen_paths:
                 continue
             seen_paths.add(path)

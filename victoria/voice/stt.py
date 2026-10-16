@@ -160,7 +160,7 @@ class SpeechToText:
         hallucinations = [
             "thank you", "thanks for watching", "subscribe", "subtitles by",
             "amara.org", "sous-titres", "c'est un peu", "c'est un", "merci",
-            "you", "so", "the", "a", "...", "bye", "please subscribe"
+            "you", "so", "the", "a", "...", "please subscribe"
         ]
         text_clean = full_text.lower().strip(" .!?,;\"'")
         if text_clean in hallucinations or (len(text_clean) <= 2 and text_clean not in ["हा", "ना", "ha", "na", "no"]):

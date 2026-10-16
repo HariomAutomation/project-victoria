@@ -268,19 +268,20 @@ class PersonaEngine:
                     except Exception:
                         pass
 
-        # 2. Detect explicit dislikes (नापसंद)
+        # 2. Detect explicit dislikes (नापसंद). Every pattern must have a capture
+        # group; generic patterns use an optional group with a fallback label.
         dislike_patterns = [
             r"मुझे\s+(.+?)\s+पसंद\s+नहीं",
             r"मुझे\s+(.+?)\s+बुरा\s+लगता\s+है",
             r"i\s+don'?t\s+like\s+(.+)",
             r"i\s+hate\s+(.+)",
-            r"ऐसा\s+मत\s+करो",
-            r"ये\s+मत\s+करना",
+            r"ऐसा\s+मत\s+करो(?:\s+(.+))?",
+            r"ये\s+मत\s+करना(?:\s+(.+))?",
         ]
         for pat in dislike_patterns:
             m = re.search(pat, user_lower)
             if m:
-                found = m.group(1).strip()
+                found = (m.group(1) or "ऐसा बर्ताव").strip()
                 if len(found) > 2 and found not in self.profile["preferences"]["dislikes"]:
                     self.profile["preferences"]["dislikes"].append(found)
                     new_events.append(f"नई नापसंद पहचानी: '{found}'")

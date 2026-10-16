@@ -254,6 +254,9 @@ tools:
   confirm_dangerous: true
   lock_reboot: true
   lock_data_removal: true
+  # Dangerous tools triggered from the HUD (no interactive prompt there) stay
+  # blocked (fail-closed) unless this is explicitly set to true.
+  allow_dangerous_in_hud: false
   dangerous_commands:
   - rm
   - rm -rf
@@ -278,6 +281,12 @@ ide:
   run_timeout: 20
 mcp:
   enabled: true
+  # Victoria's own MCP server: exposes her brain to external AI clients (victoria-mcp).
+  victoria_server:
+    enabled: true
+    # Dangerous tools (delete/terminal/self-modify...) stay blocked for MCP
+    # clients unless explicitly enabled here.
+    allow_dangerous_tools: false
   servers:
     rea:
       enabled: true
