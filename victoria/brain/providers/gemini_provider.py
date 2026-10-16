@@ -157,8 +157,26 @@ class GeminiProvider(BaseProvider):
             max_output_tokens=self.max_tokens,
         )
 
-        if system_prompt:
-            gen_config.system_instruction = system_prompt
+        # Map legacy aliases to official Google GenAI models, preserving latest models
+        actual_model = self.model_name
+        if actual_model == "gemini":
+            actual_model = "gemini-3.8-flash"
+        elif actual_model in ["gemini_4", "gemini-4"]:
+            actual_model = "gemini-4-argon"
+        elif actual_model in ["gemini_38", "gemini-3.8-flash"]:
+            actual_model = "gemini-3.8-flash"
+        elif actual_model in ["gemini_36", "gemini-3.6-flash"]:
+            actual_model = "gemini-3.6-flash"
+        elif actual_model in ["gemini_pro", "gemini-2.5-pro"]:
+            actual_model = "gemini-3.1-pro-preview"
+        elif actual_model in ["gemini_flash_lite", "gemini-3.5-flash-lite"]:
+            actual_model = "gemini-3.5-flash-lite"
+
+        # Explicitly instruct the model of its exact version so it never hallucinates legacy models like 2.5
+        active_instruction = system_prompt or ""
+        if "[AI Model Notice" not in active_instruction:
+            active_instruction += f"\n[AI Model Notice: You are powered by Google {actual_model} (Project Victoria AI Brain). State your exact model name when asked]."
+        gen_config.system_instruction = active_instruction
 
         if tools:
             gen_config.tools = self._convert_tools_to_gemini(tools)
@@ -167,13 +185,6 @@ class GeminiProvider(BaseProvider):
         contents = self._convert_messages_to_gemini(messages)
 
         try:
-            # Map legacy/hallucinated model names to valid Google GenAI models
-            actual_model = self.model_name
-            if actual_model in ["gemini", "gemini-2.5-flash", "gemini-3.8-flash"]:
-                actual_model = "gemini-3.5-flash-lite"
-            elif actual_model in ["gemini_pro", "gemini-2.5-pro"]:
-                actual_model = "gemini-3.1-pro-preview"
-
             try:
                 response = client.models.generate_content(
                     model=actual_model,
@@ -182,15 +193,24 @@ class GeminiProvider(BaseProvider):
                 )
             except Exception as initial_err:
                 err_str = str(initial_err).lower()
-                # If model is unavailable, rate-limited or not found, fallback to next reliable Gemini model
+                # If model is unavailable, rate-limited or not found, fallback to next reliable latest Gemini model
                 if any(x in err_str for x in ["not_found", "not found", "404", "invalid_argument", "503", "unavailable", "resource_exhausted", "429", "high demand"]):
-                    fallbacks = ["gemini-3.5-flash-lite", "gemini-flash-latest", "gemini-3.8-flash", "gemini-3.1-pro-preview"]
+                    fallbacks = [
+                        "gemini-3.8-flash",
+                        "gemini-4-argon",
+                        "gemini-3.6-flash",
+                        "gemini-3.5-flash",
+                        "gemini-3.5-flash-lite",
+                        "gemini-flash-latest",
+                        "gemini-3.1-pro-preview",
+                    ]
                     recovered = False
                     for fb in fallbacks:
                         if fb == actual_model:
                             continue
                         try:
                             console.print(f"[yellow]⚠️ Model '{actual_model}' failed ({initial_err}). Retrying with '{fb}'...[/yellow]")
+                            gen_config.system_instruction = (system_prompt or "") + f"\n[AI Model Notice: You are powered by Google {fb} (Project Victoria AI Brain). State your exact model name when asked]."
                             response = client.models.generate_content(
                                 model=fb,
                                 contents=contents,

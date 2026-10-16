@@ -101,6 +101,24 @@ brain:
       api_key_env: GEMINI_API_KEY
       temperature: 0.7
       max_tokens: 8192
+    gemini_4:
+      provider: gemini
+      model: gemini-4-argon
+      api_key_env: GEMINI_API_KEY
+      temperature: 0.7
+      max_tokens: 8192
+    gemini_38:
+      provider: gemini
+      model: gemini-3.8-flash
+      api_key_env: GEMINI_API_KEY
+      temperature: 0.7
+      max_tokens: 8192
+    gemini_36:
+      provider: gemini
+      model: gemini-3.6-flash
+      api_key_env: GEMINI_API_KEY
+      temperature: 0.7
+      max_tokens: 8192
     gemini_flash_lite:
       provider: gemini
       model: gemini-3.5-flash-lite
