@@ -91,6 +91,7 @@ voice:
     chunk_duration: 0.03
     max_recording_seconds: 12
     input_device: null
+  time_format: 12-hour
 brain:
   active_model: sarvam
   models:
