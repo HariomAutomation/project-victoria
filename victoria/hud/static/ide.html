@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Victoria // Code Deck</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/ide.css?v=1.0">
+    <!-- Monaco Editor (same engine as VS Code) -->
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/loader.js"></script>
+</head>
+<body>
+    <div class="ide-shell">
+        <!-- Header -->
+        <header class="ide-head">
+            <div class="ide-brand">
+                <span class="dot"></span>
+                <span class="name">VICTORIA</span>
+                <span class="tag">CODE DECK</span>
+            </div>
+            <span class="ide-ws" id="wsName">workspace…</span>
+            <div class="ide-actions">
+                <button class="ide-btn ghost" id="btnRefresh" title="Reload file tree">↻ Refresh</button>
+                <button class="ide-btn primary" id="btnSave" title="Save current file (Ctrl+S)">💾 Save</button>
+                <button class="ide-btn" id="btnAsk" title="Ask Victoria about the current file">✨ Ask Victoria</button>
+                <button class="ide-btn ghost" id="btnHud" title="Back to Victoria HUD">⌂ HUD</button>
+            </div>
+        </header>
+
+        <!-- File tree -->
+        <aside class="ide-panel ide-tree">
+            <div class="ide-panel-title">EXPLORER</div>
+            <div class="tree-search">
+                <input type="search" id="treeFilter" placeholder="Filter files…" autocomplete="off">
+            </div>
+            <div class="tree-body" id="treeBody">
+                <div class="editor-empty">Loading…</div>
+            </div>
+        </aside>
+
+        <!-- Editor -->
+        <section class="ide-panel ide-editor">
+            <div class="tabs" id="tabs"></div>
+            <div class="editor-host" id="editorHost">
+                <div class="editor-empty" id="editorEmpty">
+                    No file open.<br>Pick a file from the explorer, or ask Victoria to write one.
+                </div>
+            </div>
+        </section>
+
+        <!-- AI chat -->
+        <aside class="ide-panel ide-chat">
+            <div class="ide-panel-title">
+                <span>✨ VICTORIA</span>
+                <span class="grow"></span>
+                <span id="chatModel" style="font-size:0.62rem;"></span>
+            </div>
+            <div class="chat-log" id="chatLog">
+                <div class="chat-msg sys">Editing context is shared with Victoria. Try: “explain this file”, “add error handling”, or “fix the bug in the selected lines”.</div>
+            </div>
+            <div class="chat-input">
+                <textarea id="chatText" placeholder="Ask Victoria about your code… (Ctrl+Enter to send)"></textarea>
+                <button class="ide-btn" id="chatSend">Send</button>
+            </div>
+        </aside>
+
+        <!-- Terminal -->
+        <section class="ide-panel ide-term">
+            <div class="ide-panel-title">
+                <span>TERMINAL</span>
+                <span class="grow"></span>
+                <button class="ide-btn ghost" id="termClear" style="padding:2px 8px;font-size:0.66rem;">Clear</button>
+            </div>
+            <pre class="term-out" id="termOut">Victoria terminal ready. Commands run in the workspace root.</pre>
+            <div class="term-in">
+                <input type="text" id="termCmd" placeholder="Run a shell command… (e.g. ls, python -m pytest, git status)" autocomplete="off">
+                <button class="ide-btn" id="termRun">Run ▶</button>
+            </div>
+        </section>
+    </div>
+
+    <div class="ide-toast" id="toast"></div>
+    <script src="js/ide.js?v=1.0"></script>
+</body>
+</html>
