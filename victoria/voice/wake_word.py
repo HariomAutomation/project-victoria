@@ -56,6 +56,8 @@ class WakeWordDetector:
                 model_size,
                 device=device,
                 compute_type=compute_type,
+                cpu_threads=2,
+                num_workers=1,
             )
             console.print("[green]✅ Wake word STT model loaded[/green]")
         return self._stt_model
@@ -102,16 +104,33 @@ class WakeWordDetector:
             "suno victoria",
             "viktoria",
             "victoriya",
+            "vitoria",
+            "vittoria",
+            "viktor",
+            "victor",
+            "biktoria",
+            "bikoria",
             "विक्टोरिया",
             "हे विक्टोरिया",
             "सुनो विक्टोरिया",
             "हाय विक्टोरिया",
             "हेलो विक्टोरिया",
+            "विकटोरिया",
+            "विक्टोरीया",
+            "विक्तोरिया",
+            "विटोरिया",
+            "विक्टोरिया जी",
+            "विक्टर",
+            "विक्टरी",
         ]
-        # Must explicitly contain Victoria in English or Hindi
-        victoria_present = any(kw in clean_text or kw in text_lower for kw in [
-            "victoria", "viktoria", "victoriya", "viktor", "विक्टोरिया", "व Victoria"
-        ])
+        # Must explicitly contain Victoria variant in English or Hindi
+        match_keywords = [
+            "victoria", "viktoria", "victoriya", "viktor", "victor",
+            "vitoria", "vittoria", "biktoria", "bikoria", "wiktor", "wiktoria",
+            "विक्टोरिया", "विकटोरिया", "विक्टोरीया", "विक्तोरिया", "विटोरिया",
+            "विक्टर", "विक्टरी"
+        ]
+        victoria_present = any(kw in clean_text or kw in text_lower for kw in match_keywords)
         if not victoria_present:
             return False
 
@@ -178,15 +197,19 @@ class WakeWordDetector:
                     if samples_since_check >= step_size:
                         samples_since_check = 0
 
-                        # Quick energy check first - skip if silence or low noise (< 0.006 RMS)
-                        energy = np.sqrt(np.mean(buffer ** 2))
-                        if energy < 0.006:
+                        # Quick energy check first - skip transcription if silence/quiet background hum
+                        peak = float(np.max(np.abs(buffer)))
+                        rms = float(np.sqrt(np.mean(buffer ** 2)))
+                        if peak < 0.003 or rms < 0.0018:
                             continue
 
-                        # Transcribe the window with language hinting to prevent foreign hallucinations
+                        # AGC normalize buffer so Whisper reliably identifies quiet speech
+                        norm_buffer = (buffer / peak) * 0.7
+
+                        # Transcribe with language=None to allow both Hindi and English wake words
                         segments, _ = model.transcribe(
-                            buffer,
-                            language="en",
+                            norm_buffer,
+                            language=None,
                             beam_size=1,
                             best_of=1,
                             without_timestamps=True,

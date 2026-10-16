@@ -47,69 +47,17 @@ def record_sample(sample_rate: int = 16000, duration_seconds: float = 4.0) -> np
 
 
 def enroll():
-    console.print(Panel(
-        "[bold cyan]🎙️ Victoria Voice Biometrics & Enrollment (Malik Ki Awaz Ka Setup)[/bold cyan]\n"
-        "[dim]Hum aapki awaz ke 5 chhote samples record karenge taaki Victoria ka AI Biometric Model\n"
-        "aapki awaz ka ek unique 'Voice Fingerprint' (192-dim embedding) bana sake.\n"
-        "Iske baad Victoria sirf aapki awaz par kaam karegi aur kisi anya awaz ko reject kar degi.[/dim]",
-        title="🔐 Speaker Verification Setup",
-        border_style="cyan"
-    ))
+    from victoria.voice.tts import TextToSpeech
+    from victoria.voice.voice_events import broadcaster
+    from victoria.voice.voice_onboarding import run_first_time_voice_enrollment
 
-    try:
-        from victoria.voice.speaker_encoder import VoiceEncoder
-    except ImportError as e:
-        console.print(f"[red]❌ Required library missing: {e}[/red]")
-        return
-
-    cfg = get_config()
-    sample_rate = cfg.audio_config.get("sample_rate", 16000)
-    profile_path = PROJECT_ROOT / cfg.speaker_verify_config.get("profile_path", "config/voice_profiles/owner.npy")
-    profile_path.parent.mkdir(parents=True, exist_ok=True)
-
-    console.print("[dim]🔄 Loading CAM++ Neural Voice Biometrics Model...[/dim]")
-    encoder = VoiceEncoder()
-    console.print("[green]✅ Voice Encoder model ready.[/green]")
-
-    embeddings = []
-
-    for i, prompt in enumerate(ENROLL_PROMPTS, 1):
-        console.print(f"\n[bold yellow]Sample {i}/5:[/bold yellow] Niche likha hua sentence saaf awaz me boliye:")
-        console.print(f"👉 [bold green]\"{prompt}\"[/bold green]")
-        Prompt.ask("[dim]Bolne ke liye ready hone par ENTER dabayein[/dim]")
-
-        console.print("[bold red]🔴 Recording on hai (4 seconds)... Abhi boliye! 🎙️[/bold red]")
-        audio = record_sample(sample_rate=sample_rate, duration_seconds=4.0)
-        console.print("[green]✅ Audio capture ho gaya![/green]")
-
-        # Compute 192-dim normalized voice embedding
-        if len(audio) > 0 and np.max(np.abs(audio)) > 0.005:
-            embed = encoder.embed_utterance(audio, sample_rate=sample_rate)
-            embeddings.append(embed)
-        else:
-            console.print("[yellow]⚠️ Awaz bohot dheemi thi, kripya agle sample me thoda saaf bolein.[/yellow]")
-
-    if embeddings:
-        # Compute the mean embedding across all enrolled samples
-        master_embedding = np.mean(embeddings, axis=0)
-        # Normalize vector
-        master_embedding = master_embedding / np.linalg.norm(master_embedding)
-        np.save(str(profile_path), master_embedding)
-
-        console.print(Panel(
-            f"[bold green]🎉 Badhai Malik! Aapki awaz ka biometric fingerprint successfully save ho gaya hai.[/bold green]\n"
-            f"[dim]• Profile File:[/dim] [cyan]{profile_path}[/cyan]\n"
-            f"[dim]• Security Status:[/dim] [green]Active (Ab Victoria sirf aapki awaz sunegi)[/green]\n"
-            f"[dim]• Background Service:[/dim] [green]Daemon automatically restart ho gaya hai.[/green]",
-            title="✅ Enrollment Complete",
-            border_style="green"
-        ))
-
-        # Auto-restart daemon to load profile immediately
+    tts = TextToSpeech()
+    success = run_first_time_voice_enrollment(tts=tts, broadcaster=broadcaster)
+    if success:
         try:
             import subprocess
             subprocess.run(["systemctl", "--user", "restart", "victoria.service"], check=False)
-            console.print("[green]🔄 Background service (victoria.service) aapki nayi voice profile ke sath activate ho chuki hai.[/green]")
+            console.print("[green]🔄 Background service (victoria.service) aapki nayi voice profile ke sath restart ho gayi hai.[/green]")
         except Exception:
             pass
 

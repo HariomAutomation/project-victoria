@@ -1,0 +1,143 @@
+"""
+Victoria - Voice Model Manager & Interactive Model Switcher
+Handles conversational model inquiries, voice-driven AI brain selection,
+and seamless switching between OpenCode (DeepSeek, Xiaomi MiMo, Nemotron, GLM)
+and cloud providers (Gemini, OpenRouter).
+"""
+
+import re
+from typing import Optional, Tuple
+
+FRIENDLY_NAMES = {
+    "opencode": "OpenCode",
+    "opencode_deepseek": "DeepSeek V4.1 Flash",
+    "opencode_mimo": "Xiaomi MiMo",
+    "opencode_nemotron": "NVIDIA Nemotron 3.5",
+    "opencode_glm": "GLM 5.3 Flash",
+    "gemini": "Google Gemini",
+    "gemini_flash_lite": "Gemini Flash Lite",
+    "openrouter": "OpenRouter",
+    "local_fast": "Ollama Local",
+    "sarvam": "Sarvam AI",
+}
+
+MODEL_PATTERNS = [
+    # Google Gemini & 3.8 / 3.5 Flash variants
+    (r"(3\.8|३\.८|gemini\s*3\.8|gemini|जेमिनी|गेमिनी|google|3\.5|३\.५|flash|lite)", "gemini", "Google Gemini Flash"),
+    # DeepSeek
+    (r"(deep\s*seek|डीप\s*सीक|दीप\s*सीक|डिप\s*सिक)", "opencode_deepseek", "DeepSeek V4.1 Flash"),
+    # Xiaomi MiMo
+    (r"(mi\s*mo|मीमो|मईमो|xiaomi|शाओमी)", "opencode_mimo", "Xiaomi MiMo"),
+    # OpenCode General
+    (r"(open\s*code|ओपन\s*कोड)", "opencode", "OpenCode"),
+    # NVIDIA Nemotron
+    (r"(nemo\s*tron|नेमोट्रॉन|nvidia)", "opencode_nemotron", "NVIDIA Nemotron 3.5"),
+    # GLM
+    (r"(glm|जीएलएम)", "opencode_glm", "GLM 5.3 Flash"),
+    # OpenRouter
+    (r"(open\s*router|ओपन\s*राउटर)", "openrouter", "OpenRouter"),
+    # Sarvam AI
+    (r"(sarvam|सर्वम|सरवम)", "sarvam", "Sarvam AI"),
+    # Ollama / Local
+    (r"(ollama|ओलामा|local)", "local_fast", "Ollama Local"),
+]
+
+CONFIRM_CURRENT_PATTERNS = [
+    r"यही\s*(ठीक|रहने\s*दो|चलेगा|सही)",
+    r"इसी\s*(पर|से|मॉडल|पे)?",
+    r"\byahi\s*(theek|sahi|rehne\s*do|chalega)\b",
+    r"\bisi\s*(par|se|pe|model)?\b",
+    r"\b(?:ec|e\.c\.|isi|ispe|iss)\s*model\b",
+    r"\b(theek\s*hai|thik\s*hai|chalega|aage\s*badho|shuru\s*karo)\b",
+    r"\bcontinue\b",
+    r"\bproceed\b",
+    r"\bstart\b",
+    r"\bsame\b",
+]
+
+
+def get_friendly_model_name(model_key: str) -> str:
+    """Return an Indian-friendly spoken name for an active AI model key."""
+    return FRIENDLY_NAMES.get(model_key, model_key)
+
+
+def detect_model_choice(text: str) -> Optional[Tuple[str, str]]:
+    """
+    Check if user's spoken words indicate a request to connect to a specific model.
+    Returns (model_key, friendly_name) or None.
+    """
+    if not text:
+        return None
+    text_lower = text.lower()
+    for pattern, key, name in MODEL_PATTERNS:
+        if re.search(pattern, text_lower):
+            return key, name
+    return None
+
+
+def is_confirm_current(text: str) -> bool:
+    """Check if the user wants to stay on the current active model."""
+    if not text:
+        return False
+    text_lower = text.lower()
+    return any(re.search(p, text_lower) for p in CONFIRM_CURRENT_PATTERNS)
+
+
+def format_model_greeting(active_model: str) -> str:
+    """
+    Crisp spoken acknowledgement when Hariom calls Victoria.
+    No fluff, no questionnaire on every wake word.
+    """
+    return "जी हरिओम!"
+
+
+def format_model_switched(display_name: str) -> str:
+    """
+    Spoken confirmation when the voice connection switches to chosen model.
+    """
+    return f"जी हरिओम, {display_name} कनेक्ट हो गया।"
+
+
+def format_model_retained(display_name: str) -> str:
+    """
+    Spoken confirmation when retaining current model.
+    """
+    return f"जी हरिओम, {display_name} एक्टिव है।"
+
+
+def extract_task_after_model(text: str) -> Optional[str]:
+    """
+    If the user combined model switching with a task in the same sentence
+    (e.g., 'DeepSeek se connect karo aur terminal open karo'),
+    extracts the remaining task ('terminal open karo') to execute immediately.
+    """
+    if not text:
+        return None
+    p = r"(?:connect|switch|activate|chalao|चलाओ|karo|करो|lagao|लगाओ|jodo|जोड़ो|badlo|बदलो)\s+(?:karke|kar ke|aur|and|fir|to|तथा|फिर|और)\s+(.+)"
+    m = re.search(p, text, flags=re.IGNORECASE)
+    if m and len(m.group(1).strip()) > 2:
+        return m.group(1).strip()
+    return None
+
+
+VOICE_PATTERNS = [
+    (r"(simran|सिमरन|सर्वम\s*आवाज़|sarvam\s*voice)", "simran", "सिमरन (सर्वम AI प्राकृतिक हिंदी)"),
+    (r"(swara|स्वरा|पहली\s*आवाज़)", "swara", "स्वरा (भारतीय मधुर हिंदी)"),
+    (r"(ava|एवा|ईवा|jarvis|मॉडर्न)", "ava", "एवा (जार्विस स्टाइल मॉडर्न AI)"),
+    (r"(emma|एम्मा|एमा|सॉफ्ट)", "emma", "एम्मा (सॉफ्ट व स्पष्ट AI)"),
+    (r"(seraphina|सेराफिना|रॉयल)", "seraphina", "सेराफ़िना (रॉयल AI)"),
+    (r"(change\s*voice|voice\s*badlo|आवाज़\s*बदलो|दूसरी\s*आवाज़|अगली\s*आवाज़|different\s*voice|next\s*voice|voice\s*change)", "cycle", "अगली आवाज़"),
+]
+
+
+def detect_voice_choice(text: str) -> Optional[Tuple[str, str]]:
+    """
+    Check if user's spoken words indicate a request to switch Victoria's speaking voice.
+    """
+    if not text:
+        return None
+    text_lower = text.lower()
+    for pattern, key, name in VOICE_PATTERNS:
+        if re.search(pattern, text_lower):
+            return key, name
+    return None

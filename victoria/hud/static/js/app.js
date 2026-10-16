@@ -70,6 +70,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 modelSelector.value = data.active_model;
             }
 
+            // Sync Live Voice Pipeline State (Listening, Thinking, Speaking, Idle)
+            if (data.voice_state) {
+                if (window.neuralBrain && (!ttsAudio || ttsAudio.paused)) {
+                    window.neuralBrain.setState(data.voice_state);
+                }
+                const neuralBadge = document.getElementById('neuralState');
+                if (neuralBadge) {
+                    neuralBadge.textContent = data.voice_state;
+                    neuralBadge.className = `state-badge ${data.voice_state.toLowerCase()}`;
+                }
+            }
+
             // Update Hardware Gauges
             const t = data.telemetry;
             if (t) {
@@ -303,7 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="msg-avatar">V</div>
                     <div class="msg-body">
                         <div class="msg-sender">Victoria</div>
-                        <div class="msg-text">कंसोल रीसेट हो गया है। मैं आपके आदेश की प्रतीक्षा कर रही हूँ मालिक!</div>
+                        <div class="msg-text">कंसोल रीसेट हो गया है। मैं आपके आदेश की प्रतीक्षा कर रही हूँ हरिओम जी!</div>
                     </div>
                 </div>
             `;
@@ -939,30 +951,53 @@ document.addEventListener('DOMContentLoaded', () => {
                 activeModelVal.textContent = data.active_model.toUpperCase();
             }
 
-            // 5. Pre-fill placeholders
+            window.latestBrainData = data;
             const p = data.providers;
             if (p) {
-                const geminiInput = document.getElementById('geminiApiKeyInput');
-                if (geminiInput && p.gemini && p.gemini.has_key) {
-                    geminiInput.placeholder = `Configured: ${p.gemini.masked_key}`;
+                function updateKeyStatusUI(statusEl, tabDotEl, inputEl, provData, provKey) {
+                    if (!provData) return;
+                    const btnSpan = document.querySelector(`.connect-key-btn[data-provider="${provKey}"] span`);
+                    if (provData.has_key) {
+                        if (statusEl) {
+                            statusEl.innerHTML = `<span style="display:inline-flex; align-items:center; gap:4px; color:var(--neon-green); font-size:0.75rem; font-family:var(--font-mono); font-weight:600;"><span class="status-dot dot-green" style="width:6px; height:6px;"></span> Active in .env: ${provData.masked_key || 'Configured'}</span>`;
+                        }
+                        if (tabDotEl) {
+                            tabDotEl.className = 'status-dot dot-green';
+                        }
+                        if (inputEl && !inputEl.value) {
+                            inputEl.placeholder = `Active in .env: ${provData.masked_key || 'Configured'}`;
+                        }
+                        if (btnSpan) {
+                            btnSpan.textContent = `⚡ Activate ${provKey.toUpperCase()} (Using .env Key)`;
+                        }
+                    } else {
+                        if (statusEl) {
+                            statusEl.innerHTML = `<span style="display:inline-flex; align-items:center; gap:4px; color:var(--neon-orange); font-size:0.75rem; font-family:var(--font-mono);"><span class="status-dot dot-warn" style="width:6px; height:6px;"></span> ⚠️ Not Set</span>`;
+                        }
+                        if (tabDotEl) {
+                            tabDotEl.className = 'status-dot dot-warn';
+                        }
+                        if (inputEl && !inputEl.value) {
+                            inputEl.placeholder = `Paste your key here...`;
+                        }
+                        if (btnSpan) {
+                            btnSpan.textContent = `⚡ Verify & Connect ${provKey.toUpperCase()}`;
+                        }
+                    }
                 }
-                const orInput = document.getElementById('openrouterApiKeyInput');
-                if (orInput && p.openrouter && p.openrouter.has_key) {
-                    orInput.placeholder = `Configured: ${p.openrouter.masked_key}`;
-                }
-                const groqInput = document.getElementById('groqApiKeyInput');
-                if (groqInput && p.groq && p.groq.has_key) {
-                    groqInput.placeholder = `Configured: ${p.groq.masked_key}`;
-                }
-                const openaiInput = document.getElementById('openaiApiKeyInput');
-                if (openaiInput && p.openai && p.openai.has_key) {
-                    openaiInput.placeholder = `Configured: ${p.openai.masked_key}`;
-                }
+
+                updateKeyStatusUI(document.getElementById('geminiKeyStatus'), document.getElementById('geminiTabDot'), document.getElementById('geminiApiKeyInput'), p.gemini, 'gemini');
+                updateKeyStatusUI(document.getElementById('openrouterKeyStatus'), document.getElementById('openrouterTabDot'), document.getElementById('openrouterApiKeyInput'), p.openrouter, 'openrouter');
+                updateKeyStatusUI(document.getElementById('groqKeyStatus'), document.getElementById('groqTabDot'), document.getElementById('groqApiKeyInput'), p.groq, 'groq');
+                updateKeyStatusUI(document.getElementById('openaiKeyStatus'), document.getElementById('openaiTabDot'), document.getElementById('openaiApiKeyInput'), p.openai, 'openai');
             }
         } catch (err) {
             console.warn('Error fetching brain status:', err);
         }
     }
+
+    // Auto-sync brain status every 4 seconds so edits in .env reflect live
+    setInterval(fetchBrainStatus, 4000);
 
     // Modal open / close handlers
     if (connectAiBtn && brainModal) {
@@ -1068,12 +1103,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const apiKey = keyInput ? keyInput.value.trim() : '';
-            if (!apiKey) {
-                showConnectionStatus(false, 'कृपया अपनी API Key यहाँ पेस्ट करें।');
+            const provInfo = window.latestBrainData?.providers?.[provider];
+            const hasEnvKey = provInfo?.has_key;
+
+            if (!apiKey && !hasEnvKey) {
+                showConnectionStatus(false, `कृपया ${provider.toUpperCase()} की API Key यहाँ पेस्ट करें या .env फ़ाइल में जोड़ें।`);
                 return;
             }
 
-            showConnectionStatus('loading', `Verifying ${provider.toUpperCase()} credentials with server...`);
+            const statusMsg = apiKey 
+                ? `Verifying ${provider.toUpperCase()} credentials with server...` 
+                : `Activating ${provider.toUpperCase()} using credentials from .env...`;
+            showConnectionStatus('loading', statusMsg);
             btn.disabled = true;
 
             try {
@@ -1105,6 +1146,33 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // Activate OpenCode Local Free Model
+    const activateOpenCodeBtn = document.getElementById('activateOpenCodeBtn');
+    const opencodeModelSelect = document.getElementById('opencodeModelSelect');
+    if (activateOpenCodeBtn && opencodeModelSelect) {
+        activateOpenCodeBtn.addEventListener('click', async () => {
+            const model = opencodeModelSelect.value;
+            showConnectionStatus('loading', `Activating OpenCode free model (${model})...`);
+            try {
+                const res = await fetch('/api/brain/use-model', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ provider: 'opencode', model_id: model })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showConnectionStatus(true, `✅ OpenCode ${model} activated!`);
+                    await fetchBrainStatus();
+                    appendMessage('system', `🚀 OpenCode (${model}) सक्रिय हो गया है! अब DeepSeek और Xiaomi MiMo सीधे आपके आदेशों का उत्तर देंगे।`);
+                } else {
+                    showConnectionStatus(false, data.detail || 'Could not activate model');
+                }
+            } catch (err) {
+                showConnectionStatus(false, err.message);
+            }
+        });
+    }
+
     // Activate Local Ollama
     if (activateOllamaBtn && ollamaModelSelect) {
         activateOllamaBtn.addEventListener('click', async () => {
@@ -1130,8 +1198,69 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Owner Voice Biometric Lock Handlers
+    const voiceLockBadge = document.getElementById('voiceLockBadge');
+    const voiceSecurityMode = document.getElementById('voiceSecurityMode');
+    const voicePrintStatus = document.getElementById('voicePrintStatus');
+    const startVoiceEnrollBtn = document.getElementById('startVoiceEnrollBtn');
+
+    async function fetchVoiceLockStatus() {
+        try {
+            const res = await fetch('/api/voice/status');
+            if (!res.ok) return;
+            const data = await res.json();
+            if (voiceSecurityMode) voiceSecurityMode.textContent = data.security_mode;
+            if (data.enrolled) {
+                if (voiceLockBadge) {
+                    voiceLockBadge.textContent = 'LOCKED';
+                    voiceLockBadge.className = 'state-badge idle';
+                }
+                if (voicePrintStatus) {
+                    voicePrintStatus.textContent = '✅ वॉयस प्रिंट लॉक (हरिओम वेरिफाइड)';
+                    voicePrintStatus.style.color = '#10b981';
+                }
+            } else {
+                if (voiceLockBadge) {
+                    voiceLockBadge.textContent = 'UNENROLLED';
+                    voiceLockBadge.className = 'state-badge listening';
+                }
+                if (voicePrintStatus) {
+                    voicePrintStatus.textContent = '⚠️ नामांकन आवश्यक (Voice Print Required)';
+                    voicePrintStatus.style.color = '#f59e0b';
+                }
+            }
+        } catch (err) {
+            console.log('Voice status note:', err);
+        }
+    }
+
+    if (startVoiceEnrollBtn) {
+        startVoiceEnrollBtn.addEventListener('click', async () => {
+            if (startVoiceEnrollBtn.disabled) return;
+            startVoiceEnrollBtn.disabled = true;
+            startVoiceEnrollBtn.textContent = '🎙️ रिकॉर्डिंग चालू है... माइक में 3 सैंपल बोलिए';
+            appendMessage('assistant', 'नमस्ते! मैं आपकी आवाज़ का वॉयस प्रिंट दर्ज कर रही हूँ। कृपया स्पीकर्स से आने वाले निर्देश सुनकर 3 सैंपल बोलिए...');
+            try {
+                const res = await fetch('/api/voice/enroll', { method: 'POST' });
+                const data = await res.json();
+                if (data.enrolled) {
+                    appendMessage('assistant', '🎉 बधाई हो हरिओम जी! आपकी वॉयस प्रिंट सुरक्षित रूप से लॉक हो गई है। अब से विक्टोरिया सिर्फ़ आपकी आवाज़ सुनकर काम करेगी!');
+                } else {
+                    appendMessage('assistant', '⚠️ वॉयस प्रिंट रिकॉर्ड नहीं हो सका। कृपया शांत कमरे में दोबारा प्रयास करें।');
+                }
+                await fetchVoiceLockStatus();
+            } catch (err) {
+                appendMessage('system', 'एरर: ' + err.message);
+            } finally {
+                startVoiceEnrollBtn.disabled = false;
+                startVoiceEnrollBtn.textContent = '🎙️ वॉयस प्रिंट रिकॉर्ड / री-कैलिब्रेट करें';
+            }
+        });
+    }
+
     // Initial load of reports & brain status
     loadReports();
     fetchBrainStatus();
+    fetchVoiceLockStatus();
     fetchOpenRouterFreeModels();
 });

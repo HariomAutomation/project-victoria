@@ -76,3 +76,33 @@ def run_custom_script(script_name: str, args: Optional[str] = None, timeout: int
         return f"⏱️ Script execution timed out after {timeout} seconds."
     except Exception as e:
         return f"Error executing script: {e}"
+
+
+def create_custom_script(script_name: str, content: str, description: str = "") -> str:
+    """
+    Create a new offline executable script (Python or Bash) in scripts/custom/.
+    Works 100% locally and offline without internet.
+    """
+    # Security validation against reboot and data deletion
+    from victoria.tools.terminal import REBOOT_SHUTDOWN_PATTERNS, DATA_REMOVAL_PATTERNS
+    import re
+
+    content_lower = content.lower()
+    for pat in REBOOT_SHUTDOWN_PATTERNS:
+        if re.search(pat, content_lower):
+            return f"🚫 सुरक्षा त्रुटि: स्क्रिप्ट '{script_name}' में रीबूट या शटडाउन कमांड शामिल है। रीबूट लॉक के कारण यह स्क्रिप्ट नहीं बनाई जा सकती।"
+
+    for pat in DATA_REMOVAL_PATTERNS:
+        if re.search(pat, content_lower):
+            return f"🛡️ सुरक्षा त्रुटि: स्क्रिप्ट '{script_name}' में डेटा डिलीट/रिमूव कमांड शामिल है। डेटा सुरक्षा लॉक के कारण यह स्क्रिप्ट नहीं बनाई जा सकती।"
+
+    SCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
+    script_path = SCRIPTS_DIR / script_name
+    try:
+        with open(script_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        os.chmod(script_path, 0o755)
+        return f"✅ ऑफ़लाइन कस्टम स्क्रिप्ट सफलतापूर्वक बनाई गई: {script_name} ({description or 'executable'})"
+    except Exception as e:
+        return f"स्क्रिप्ट बनाने में त्रुटि: {e}"
+

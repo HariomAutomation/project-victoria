@@ -74,7 +74,7 @@ def list_owner_memories(category: str = "", limit: int = 10) -> str:
     if not memories:
         return "लोकल मेमोरी डेटाबेस में अभी कोई स्मृति नहीं है।"
 
-    lines = [f"📋 [मालिक की सहेजी गई लोकल स्मृतियाँ (कुल: {len(memories)})]:"]
+    lines = [f"📋 [हरिओम जी की सहेजी गई लोकल स्मृतियाँ (कुल: {len(memories)})]:"]
     for m in memories:
         stars = "⭐" * m["importance"]
         lines.append(

@@ -21,7 +21,6 @@ dist/
 # Environment Variables & Secrets (CRITICAL)
 .env
 .env.*
-!.env.example
 *.key
 *.pem
 
@@ -35,6 +34,7 @@ dist/
 # Runtime Data, Logs & Databases
 data/logs/*
 !data/logs/.gitkeep
+data/cache/
 data/audio_cache/*
 !data/audio_cache/.gitkeep
 data/voice_samples/*
@@ -44,7 +44,10 @@ data/teardowns/*
 data/memory/*.db
 data/memory/*.db-shm
 data/memory/*.db-wal
+data/memory/journal/
+data/memory/work_logs/
 
 # Private Biometric Voice Profiles
 config/voice_profiles/*.npy
 !config/voice_profiles/.gitkeep
+config/voice_profiles/owner_meta.json

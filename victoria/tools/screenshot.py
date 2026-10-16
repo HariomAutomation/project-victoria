@@ -44,7 +44,41 @@ def take_screenshot(filename: str = None, window: str = None) -> str:
                 )
                 return f"📸 Screenshot saved: {filepath} (window: {window})"
 
-        # Full screen screenshot - try multiple tools
+        # 1. Native Wayland / GNOME Desktop Portal (100% full-color screenshot on Ubuntu Wayland)
+        try:
+            import dbus, dbus.mainloop.glib
+            import shutil
+            from gi.repository import GLib
+
+            dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+            bus = dbus.SessionBus()
+            portal = bus.get_object("org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop")
+            iface = dbus.Interface(portal, "org.freedesktop.portal.Screenshot")
+            loop = GLib.MainLoop()
+
+            result_path = [None]
+            def _on_portal_response(response_code, results):
+                if response_code == 0 and "uri" in results:
+                    uri = str(results["uri"])
+                    if uri.startswith("file://"):
+                        result_path[0] = uri[7:]
+                loop.quit()
+
+            req_path = iface.Screenshot("", {"interactive": dbus.Boolean(False)})
+            req_obj = bus.get_object("org.freedesktop.portal.Desktop", req_path)
+            req_iface = dbus.Interface(req_obj, "org.freedesktop.portal.Request")
+            req_iface.connect_to_signal("Response", _on_portal_response)
+
+            GLib.timeout_add_seconds(3, loop.quit)
+            loop.run()
+
+            if result_path[0] and os.path.exists(result_path[0]):
+                shutil.copy2(result_path[0], filepath)
+                return f"📸 Screenshot saved: {filepath}"
+        except Exception:
+            pass
+
+        # Full screen screenshot - fallback to CLI tools
         tools = [
             ["scrot", filepath],
             ["gnome-screenshot", "-f", filepath],
@@ -60,7 +94,7 @@ def take_screenshot(filename: str = None, window: str = None) -> str:
             except FileNotFoundError:
                 continue
 
-        return "❌ No screenshot tool found. Install scrot: sudo apt install scrot"
+        return "❌ No screenshot tool found."
 
     except Exception as e:
         return f"❌ Screenshot error: {str(e)}"

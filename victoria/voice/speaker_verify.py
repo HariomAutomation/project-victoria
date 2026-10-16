@@ -38,15 +38,19 @@ class SpeakerVerifier:
         sv_cfg = cfg.speaker_verify_config
 
         self.enabled: bool = sv_cfg.get("enabled", True)
-        self.threshold: float = sv_cfg.get("threshold", 0.75)
+        self.threshold: float = sv_cfg.get("threshold", 0.44)
         self.profile_path: str = str(
             cfg.voice_profiles_dir / "owner.npy"
+        )
+        self.victoria_profile_path: str = str(
+            cfg.voice_profiles_dir / "victoria_tts.npy"
         )
         self.passphrase_commands: list = sv_cfg.get("passphrase_required_for", [])
         self.sample_rate: int = cfg.audio_config.get("sample_rate", 16000)
 
         self._encoder = None
         self._owner_embedding: Optional[np.ndarray] = None
+        self._victoria_embedding: Optional[np.ndarray] = None
 
         if self.enabled:
             self._load_profile()
@@ -65,10 +69,13 @@ class SpeakerVerifier:
         return self._encoder
 
     def _load_profile(self):
-        """Load the owner's voice profile if it exists."""
+        """Load owner's and Victoria's voice profiles if they exist."""
         if os.path.exists(self.profile_path):
             self._owner_embedding = np.load(self.profile_path)
             console.print("[green]🔐 Owner voice profile loaded[/green]")
+        if os.path.exists(self.victoria_profile_path):
+            self._victoria_embedding = np.load(self.victoria_profile_path)
+            console.print("[green]🔊 Victoria TTS anti-echo profile loaded[/green]")
 
     def is_enrolled(self) -> bool:
         """Check if an owner voice profile is enrolled."""
@@ -109,7 +116,13 @@ class SpeakerVerifier:
             return True, 1.0
 
         try:
-            trimmed = self.trim_silence(audio)
+            peak = float(np.max(np.abs(audio))) if audio is not None and len(audio) > 0 else 0.0
+            if peak > 0.0005:
+                norm_audio = (audio / peak) * 0.7
+            else:
+                norm_audio = audio
+
+            trimmed = self.trim_silence(norm_audio, threshold=0.01)
             if len(trimmed) < int(self.sample_rate * 0.2):  # Less than 0.2s
                 console.print("[dim]Audio too short after trimming for verification[/dim]")
                 return True, 0.5  # Accept but with low confidence
@@ -123,8 +136,17 @@ class SpeakerVerifier:
             owner_norm = np.linalg.norm(self._owner_embedding)
             normed_owner = self._owner_embedding / owner_norm if owner_norm > 0 else self._owner_embedding
 
-            # Calculate cosine similarity
+            # Calculate cosine similarity with owner
             similarity = float(np.dot(normed_owner, incoming_embedding))
+
+            # 🔊 ANTI-ECHO CHECK: Reject if audio is Victoria's own speaker output
+            if self._victoria_embedding is not None:
+                vic_norm = np.linalg.norm(self._victoria_embedding)
+                normed_vic = self._victoria_embedding / vic_norm if vic_norm > 0 else self._victoria_embedding
+                vic_similarity = float(np.dot(normed_vic, incoming_embedding))
+                if vic_similarity >= 0.70 and vic_similarity > similarity:
+                    console.print(f"[bold yellow]🔊 Victoria self-echo rejected (TTS echo match: {vic_similarity:.2f} > owner match: {similarity:.2f})[/bold yellow]")
+                    return False, 0.0
 
             target_thresh = threshold if threshold is not None else self.threshold
             is_owner = similarity >= target_thresh
@@ -136,6 +158,32 @@ class SpeakerVerifier:
         except Exception as e:
             console.print(f"[red]❌ Speaker verification error: {e}[/red]")
             return False, 0.0
+
+    def is_victoria_echo(self, audio: np.ndarray) -> bool:
+        """Check if audio is Victoria's own speaker output echo."""
+        if self._victoria_embedding is None or audio is None or len(audio) < int(self.sample_rate * 0.2):
+            return False
+        encoder = self._get_encoder()
+        if encoder is None:
+            return False
+        try:
+            peak = float(np.max(np.abs(audio)))
+            if peak < 0.001:
+                return False
+            norm_audio = (audio / peak) * 0.7
+            trimmed = self.trim_silence(norm_audio, threshold=0.01)
+            if len(trimmed) < int(self.sample_rate * 0.2):
+                return False
+            incoming_embedding = encoder.embed_utterance(trimmed, sample_rate=self.sample_rate)
+            inc_norm = np.linalg.norm(incoming_embedding)
+            if inc_norm > 0:
+                incoming_embedding = incoming_embedding / inc_norm
+            vic_norm = np.linalg.norm(self._victoria_embedding)
+            normed_vic = self._victoria_embedding / vic_norm if vic_norm > 0 else self._victoria_embedding
+            vic_similarity = float(np.dot(normed_vic, incoming_embedding))
+            return vic_similarity >= 0.70
+        except Exception:
+            return False
 
     def needs_passphrase(self, command_text: str) -> bool:
         """Check if a command requires passphrase verification."""

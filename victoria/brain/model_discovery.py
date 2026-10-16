@@ -200,6 +200,33 @@ def _discover_ollama(api_key: Optional[str], base_url: Optional[str]) -> list[di
     return out
 
 
+def _discover_opencode() -> list[dict]:
+    """Discover free models supported natively by local OpenCode CLI."""
+    opencode_models = [
+        ("deepseek-v4.1-flash-free", "DeepSeek V4.1 Flash Free (Ultra-Fast & Smart)", 200000),
+        ("mimo-v2.6-flash-free", "Xiaomi MiMo-V2.6 Flash Free (Multimodal)", 200000),
+        ("nemotron-3.5-lightning-free", "NVIDIA Nemotron 3.5 Lightning Free (1M Context)", 262144),
+        ("glm-5.3-flash-free", "GLM-5.3 Flash Free", 200000),
+        ("nemotron-3-ultra-free", "NVIDIA Nemotron 3 Ultra Free", 1000000),
+        ("cat-jam-free", "Cat Jam Free", 1048576),
+        ("space-bunny-free", "Space Bunny Free", 1048576),
+        ("longcat-2.5-preview-free", "LongCat 2.5 Preview Free", 1000000),
+        ("muse-spark-1.3-contributor-free", "Muse Spark 1.3 Free", 1048576),
+    ]
+    return [
+        _entry(
+            model_id=mid,
+            name=name,
+            provider="opencode",
+            context_length=ctx,
+            free=True,
+            free_tier=True,
+            description="100% Free local engine powered by OpenCode CLI",
+        )
+        for mid, name, ctx in opencode_models
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -224,7 +251,9 @@ def list_models(
     try:
         if provider == "gemini":
             models = _discover_gemini(api_key, base_url)
-        elif provider in ("openrouter", "opencode"):
+        elif provider == "opencode":
+            models = _discover_opencode()
+        elif provider == "openrouter":
             models = _discover_openrouter(api_key, base_url, free_only=free_only)
         elif provider in ("groq", "openai", "sarvam"):
             models = _discover_openai_compatible(provider, api_key, base_url)
@@ -247,24 +276,21 @@ def list_models(
 # Curated fallbacks (used only when the live call fails, e.g. offline).
 CURATED_FREE_MODELS = [
     ("openrouter/free", "OpenRouter: Free Auto-Router (always free)", 200000),
-    ("nvidia/nemotron-3-ultra-550b-a55b:free", "NVIDIA: Nemotron 3 Ultra (Free, 1M ctx)", 1000000),
     ("nvidia/nemotron-3.5-lightning:free", "NVIDIA: Nemotron 3.5 Lightning (Free, 1M ctx)", 1000000),
-    ("thinkingmachines/inkling:free", "Thinking Machines: Inkling (Free, 1M ctx)", 1048576),
-    ("poolside/laguna-s-2.1:free", "Poolside: Laguna S 2.1 (Free)", 262144),
-    ("dots-studio/dots-3-note-preview:free", "Dots Studio: Dots3-Note Preview (Free)", 512000),
-    ("qwen/qwen3.8-27b:free", "Qwen: Qwen3.8 27B (Free)", 262144),
-    ("google/gemma-4-31b-it:free", "Google: Gemma 4 31B (Free)", 262144),
-    ("google/gemma-4-26b-a4b-it:free", "Google: Gemma 4 26B A4B (Free)", 262144),
-    ("nvidia/nemotron-3-super-120b-a12b:free", "NVIDIA: Nemotron 3 Super (Free)", 262144),
     ("cohere/north-mini-code:free", "Cohere: North Mini Code (Free)", 256000),
     ("liquid/lfm-2.5-2.6b:free", "LiquidAI: LFM2.5 2.6B (Free)", 65536),
+    ("google/gemma-4-31b-it:free", "Google: Gemma 4 31B (Free)", 262144),
+    ("deepseek/deepseek-chat", "DeepSeek: V3 Chat (OpenRouter)", 128000),
+    ("deepseek/deepseek-r1", "DeepSeek: R1 (OpenRouter)", 128000),
 ]
 
 
 def curated_fallback(provider: str) -> list[dict]:
     """A small offline list so the UI is never empty."""
     provider = (provider or "").lower()
-    if provider in ("openrouter", "opencode"):
+    if provider == "opencode":
+        return _discover_opencode()
+    if provider == "openrouter":
         return [_entry(mid, name, "openrouter", ctx, free=True) for mid, name, ctx in CURATED_FREE_MODELS]
     if provider == "gemini":
         return [

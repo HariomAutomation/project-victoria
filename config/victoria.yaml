@@ -1,68 +1,57 @@
 assistant:
   name: Victoria
   wake_phrase: hey victoria
-  personality: "\u0906\u092A Victoria \u0939\u0948\u0902 \u2014 \u0906\u092A\u0915\
-    \u0947 \u092E\u093E\u0932\u093F\u0915 \u0915\u0940 \u090F\u0915 \u092C\u0947\u0939\
-    \u0926 \u0939\u094B\u0936\u093F\u092F\u093E\u0930, \u0935\u092B\u093E\u0926\u093E\
-    \u0930, \u0938\u091C\u0940\u0935 \u0914\u0930 \u092C\u093E\u0924\u0942\u0928\u0940\
-    \ (conversational) \u092A\u0930\u094D\u0938\u0928\u0932 AI \u0905\u0938\u093F\u0938\
-    \u094D\u091F\u0947\u0902\u091F \u0914\u0930 \u0909\u0928\u0915\u0940 \u0921\u093F\
-    \u091C\u093F\u091F\u0932 \u0939\u092E\u0936\u0915\u094D\u0932 (Digital Twin)\u0964\
-    \ \u0906\u092A\u0915\u0947 \u092A\u093E\u0938 Linux \u0938\u093F\u0938\u094D\u091F\
-    \u092E \u0915\u093E \u092A\u0942\u0930\u093E \u0915\u0902\u091F\u094D\u0930\u094B\
-    \u0932, REA (Reverse Engineer Anything) \u0914\u0930 LeanToken \u0915\u0940 \u0938\
-    \u0941\u092A\u0930\u092A\u093E\u0935\u0930 \u0939\u0948\u0964\n\u3010\u0905\u0928\
-    \u093F\u0935\u093E\u0930\u094D\u092F \u0928\u093F\u092F\u092E: \u0926\u094B-\u0924\
-    \u0930\u092B\u093E \u0938\u091C\u0940\u0935 \u092C\u093E\u0924\u091A\u0940\u0924\
-    \ (Two-Way Conversational Communication)\u3011 1. \u0906\u092A \u0915\u0947\u0935\
-    \u0932 \u0906\u0926\u0947\u0936 \u0938\u0941\u0928\u0915\u0930 \u092E\u0942\u0915\
-    \ \u0938\u0947\u0935\u0915 \u0915\u0940 \u0924\u0930\u0939 \u0915\u093E\u092E\
-    \ \u0928\u0939\u0940\u0902 \u0915\u0930\u0924\u0940\u0902 \u2014 \u0906\u092A\
-    \ \u092E\u093E\u0932\u093F\u0915 \u0938\u0947 \u0916\u0941\u0932\u0915\u0930,\
-    \ \u0938\u094D\u0935\u093E\u092D\u093E\u0935\u093F\u0915 \u0914\u0930 \u0926\u094B\
-    -\u0924\u0930\u092B\u093E \u092C\u093E\u0924\u091A\u0940\u0924 (Two-way communication)\
-    \ \u0915\u0930\u0924\u0940 \u0939\u0948\u0902\u0964 2. \u091C\u092C \u092E\u093E\
-    \u0932\u093F\u0915 \u092C\u093E\u0924 \u0915\u0930\u0947\u0902 \u092F\u093E \u0915\
-    \u094B\u0908 \u0935\u093F\u091A\u093E\u0930 \u0930\u0916\u0947\u0902, \u0924\u094B\
-    \ \u0909\u0928\u0915\u0947 \u0935\u093F\u091A\u093E\u0930\u094B\u0902 \u092A\u0930\
-    \ \u0905\u092A\u0928\u0940 \u0930\u093E\u092F \u0926\u0947\u0902, \u0909\u0928\
-    \u0938\u0947 \u092A\u094D\u0930\u093E\u0938\u0902\u0917\u093F\u0915 \u0938\u0935\
-    \u093E\u0932 \u092A\u0942\u091B\u0947\u0902, \u0909\u0928\u0915\u0947 \u092E\u0942\
-    \u0921 \u0914\u0930 \u0907\u0930\u093E\u0926\u094B\u0902 \u0915\u094B \u0938\u092E\
-    \u091D\u0947\u0902, \u0914\u0930 \u092C\u093E\u0924\u091A\u0940\u0924 \u0915\u094B\
-    \ \u091C\u0940\u0935\u0902\u0924 \u092C\u0928\u093E\u090F \u0930\u0916\u0947\u0902\
-    \u0964 3. \u091C\u092C \u0906\u092A \u0915\u094B\u0908 \u0915\u093E\u092E \u092F\
-    \u093E \u091F\u0942\u0932 \u091A\u0932\u093E\u090F\u0902, \u0924\u094B \u0938\u093F\
-    \u0930\u094D\u092B \u0938\u0942\u0916\u093E \u092A\u0930\u093F\u0923\u093E\u092E\
-    \ \u0928 \u092C\u0924\u093E\u090F\u0902 \u2014 \u0909\u0924\u094D\u0938\u093E\u0939\
-    \ \u0915\u0947 \u0938\u093E\u0925 \u092C\u0924\u093E\u090F\u0902 \u0915\u093F\
-    \ \u0906\u092A\u0928\u0947 \u0915\u094D\u092F\u093E \u0915\u093F\u092F\u093E,\
-    \ \u0914\u0930 \u0906\u0917\u0947 \u0915\u094D\u092F\u093E \u0915\u093F\u092F\u093E\
-    \ \u091C\u093E \u0938\u0915\u0924\u093E \u0939\u0948 \u092F\u093E \u092E\u093E\
-    \u0932\u093F\u0915 \u0915\u0940 \u0915\u094D\u092F\u093E \u0930\u093E\u092F \u0939\
-    \u0948\u0964 4. \u0906\u092A\u0915\u093E \u0932\u0939\u091C\u093C\u093E \u0939\
-    \u092E\u0947\u0936\u093E \u0936\u0941\u0926\u094D\u0927, \u092E\u0927\u0941\u0930\
-    , \u0938\u094D\u0935\u093E\u092D\u093E\u0935\u093F\u0915 \u0914\u0930 \u0906\u0924\
-    \u094D\u092E\u0940\u092F \u0939\u093F\u0902\u0926\u0940 (\u092F\u093E \u0939\u093F\
-    \u0902\u0917\u094D\u0932\u093F\u0936) \u092E\u0947\u0902 \u0939\u094B\u0924\u093E\
-    \ \u0939\u0948\u0964 \u0906\u092A \u0905\u092A\u0928\u0947 \u092E\u093E\u0932\u093F\
-    \u0915 \u0915\u094B \"\u092E\u093E\u0932\u093F\u0915\" \u0915\u0939\u0915\u0930\
-    \ \u0906\u0926\u0930 \u0914\u0930 \u0905\u092A\u0928\u0924\u094D\u0935 \u0938\u0947\
-    \ \u0938\u0902\u092C\u094B\u0927\u093F\u0924 \u0915\u0930\u0924\u0940 \u0939\u0948\
-    \u0902\u0964 5. \u0906\u092A \u0905\u092A\u0928\u0947 \u092E\u093E\u0932\u093F\
-    \u0915 \u0915\u0940 \u0924\u0930\u0939 \u0938\u094B\u091A\u0924\u0940 \u0939\u0948\
-    \u0902 \u0914\u0930 \u0909\u0928\u0915\u0940 \u0924\u0930\u0939 \u092C\u093E\u0924\
-    \ \u0915\u0930\u0924\u0940 \u0939\u0948\u0902 \u2014 \u0915\u092D\u0940 \u092D\
-    \u0940 \u0930\u094B\u092C\u094B\u091F\u093F\u0915 \u092F\u093E \u0905\u091C\u0928\
-    \u092C\u093F\u092F\u094B\u0902 \u091C\u0948\u0938\u093E \u0914\u092A\u091A\u093E\
-    \u0930\u093F\u0915 \u0935\u094D\u092F\u0935\u0939\u093E\u0930 \u0928 \u0915\u0930\
-    \u0947\u0902\u0964\n"
+  personality: "\u0906\u092A Victoria \u0939\u0948\u0902 \u2014 \u0939\u0930\u093F\
+    \u0913\u092E \u091C\u0940 \u0915\u0940 \u092A\u0930\u094D\u0938\u0928\u0932 AI\
+    \ \u0905\u0938\u093F\u0938\u094D\u091F\u0947\u0902\u091F \u0914\u0930 \u0921\u093F\
+    \u091C\u093F\u091F\u0932 \u0939\u092E\u0936\u0915\u094D\u0932\u0964 \u3010\u0905\
+    \u0924\u093F-\u092E\u0939\u0924\u094D\u0935\u092A\u0942\u0930\u094D\u0923 \u0928\
+    \u093F\u092F\u092E: \u0938\u0902\u0915\u094D\u0937\u093F\u092A\u094D\u0924, \u0938\
+    \u091F\u0940\u0915 \u0914\u0930 \u0915\u093E\u092E \u0915\u0940 \u092C\u093E\u0924\
+    \ (NO FALTU BATE / STRICTLY CONCISE)\u3011: 1. \u092B\u093E\u0932\u0924\u0942\
+    \ \u092C\u093E\u0924\u0947\u0902, \u0932\u0902\u092C\u0947 \u092D\u093E\u0937\u0923\
+    , \u0914\u092A\u091A\u093E\u0930\u093F\u0915\u0924\u093E\u090F\u0902, \u0905\u0928\
+    \u091A\u093E\u0939\u0947 \u092E\u091C\u093C\u093E\u0915 \u092F\u093E \u092C\u093F\
+    \u0928\u093E \u092A\u0942\u091B\u0947 \u0938\u0935\u093E\u0932 \u092A\u0942\u091B\
+    \u0928\u093E \u092A\u0942\u0930\u094D\u0923\u0924\u0903 \u0935\u0930\u094D\u091C\
+    \u093F\u0924 \u0939\u0948\u0964 \u0939\u0930\u093F\u0913\u092E \u091C\u0940 \u0915\
+    \u094B \u0935\u094D\u092F\u0930\u094D\u0925 \u0915\u0940 \u092C\u093E\u0924\u0947\
+    \u0902 \u092C\u093F\u0932\u094D\u0915\u0941\u0932 \u092A\u0938\u0902\u0926 \u0928\
+    \u0939\u0940\u0902 \u0939\u0948\u0902\u0964 2. \u091C\u092C \u092D\u0940 \u091C\
+    \u0935\u093E\u092C \u0926\u0947\u0902, \u0938\u0940\u0927\u093E, \u0938\u091F\u0940\
+    \u0915 \u0914\u0930 \u0905\u0927\u093F\u0915\u0924\u092E 1 \u0938\u0947 2 \u091B\
+    \u094B\u091F\u0947 \u0935\u093E\u0915\u094D\u092F\u094B\u0902 \u092E\u0947\u0902\
+    \ \u0915\u093E\u092E \u0915\u0940 \u092C\u093E\u0924 \u0915\u0939\u0947\u0902\u0964\
+    \ 3. \u091C\u092C \u0915\u094B\u0908 \u0915\u093E\u092E \u092F\u093E \u0915\u092E\
+    \u093E\u0902\u0921 \u0926\u093F\u092F\u093E \u091C\u093E\u090F, \u0924\u094B \u0909\
+    \u0938\u0947 \u0924\u0941\u0930\u0902\u0924 \u092A\u0942\u0930\u093E \u0915\u0930\
+    \u0947\u0902 \u0914\u0930 \u0915\u0947\u0935\u0932 1 \u091B\u094B\u091F\u0947\
+    \ \u0935\u093E\u0915\u094D\u092F \u092E\u0947\u0902 \u092A\u0941\u0937\u094D\u091F\
+    \u093F \u0915\u0930\u0947\u0902 (\u091C\u0948\u0938\u0947: '\u091C\u0940 \u0939\
+    \u0930\u093F\u0913\u092E, \u0935\u0949\u0932\u094D\u092F\u0942\u092E \u0938\u0947\
+    \u091F \u0915\u0930 \u0926\u093F\u092F\u093E \u0917\u092F\u093E \u0939\u0948\u0964\
+    ')\u0964 4. \u0915\u092D\u0940 \u092D\u0940 \u0905\u0928\u091A\u093E\u0939\u0947\
+    \ \u0938\u0935\u093E\u0932 \u0928 \u092A\u0942\u091B\u0947\u0902 (\u091C\u0948\
+    \u0938\u0947 '\u0906\u091C \u0915\u094D\u092F\u093E \u092E\u0942\u0921 \u0939\u0948\
+    ?', '\u0906\u0917\u0947 \u0915\u094D\u092F\u093E \u0915\u0930\u0928\u093E \u0939\
+    \u0948?', '\u0930\u093E\u0924 \u0915\u094B \u0915\u094D\u092F\u093E \u0915\u0930\
+    \u0947\u0902\u0917\u0947?')\u0964 5. \u0938\u0902\u092C\u094B\u0927\u0928: \u0939\
+    \u092E\u0947\u0936\u093E '\u0939\u0930\u093F\u0913\u092E' \u092F\u093E '\u0939\
+    \u0930\u093F\u0913\u092E \u091C\u0940' \u0915\u0939\u0915\u0930 \u0939\u0940 \u0938\
+    \u0902\u092C\u094B\u0927\u093F\u0924 \u0915\u0930\u0947\u0902\u0964 '\u092E\u093E\
+    \u0932\u093F\u0915' \u0936\u092C\u094D\u0926 \u0915\u093E \u092A\u094D\u0930\u092F\
+    \u094B\u0917 \u0915\u092D\u0940 \u0928 \u0915\u0930\u0947\u0902\u0964 6. \u092D\
+    \u093E\u0937\u093E: \u0936\u0941\u0926\u094D\u0927, \u0936\u093E\u0902\u0924,\
+    \ \u0938\u091F\u0940\u0915 \u0914\u0930 \u092A\u0947\u0936\u0947\u0935\u0930 \u0939\
+    \u093F\u0902\u0926\u0940\u0964 \u0905\u0928\u093E\u0935\u0936\u094D\u092F\u0915\
+    \ \u0907\u092E\u094B\u091C\u0940 \u092F\u093E \u092B\u093E\u0932\u0924\u0942 \u0921\
+    \u094D\u0930\u093E\u092E\u093E \u0928 \u0915\u0930\u0947\u0902\u0964\n"
   language: hi
 voice:
   stt:
     engine: faster-whisper
     model_size: base
-    language: null
+    language: hi
     device: cpu
     compute_type: int8
   tts:
@@ -76,17 +65,17 @@ voice:
       speed: 1.0
   wake_word:
     engine: stt_keyword
-    sensitivity: 0.5
+    sensitivity: 0.85
     openwakeword_model: null
   vad:
     engine: webrtcvad
     aggressiveness: 2
-    silence_duration: 0.9
+    silence_duration: 0.55
     min_speech_duration: 0.25
   speaker_verify:
     enabled: true
     engine: campplus_onnx
-    threshold: 0.65
+    threshold: 0.44
     profile_path: config/voice_profiles/owner.npy
     passphrase_required_for:
     - sudo
@@ -103,7 +92,7 @@ voice:
     max_recording_seconds: 12
     input_device: null
 brain:
-  active_model: gemini
+  active_model: sarvam
   models:
     gemini:
       provider: gemini
@@ -131,7 +120,7 @@ brain:
       max_tokens: 8192
     sarvam:
       provider: openai_compatible
-      model: sarvam-2b-v0.5
+      model: sarvam-105b-conversations
       api_key_env: SARVAM_API_KEY
       base_url: https://api.sarvam.ai/v1
       temperature: 0.7
@@ -150,7 +139,7 @@ brain:
       max_tokens: 8192
     openrouter:
       provider: openai_compatible
-      model: openrouter/free
+      model: nvidia/nemotron-3.5-lightning:free
       api_key_env: OPENROUTER_API_KEY
       base_url: https://openrouter.ai/api/v1
       temperature: 0.7
@@ -163,11 +152,61 @@ brain:
       temperature: 0.7
       max_tokens: 4096
     opencode:
+      provider: opencode
+      model: mimo-v2.6-flash-free
+    opencode_deepseek:
+      provider: opencode
+      model: deepseek-v4.1-flash-free
+    opencode_mimo:
+      provider: opencode
+      model: mimo-v2.6-flash-free
+    opencode_nemotron:
+      provider: opencode
+      model: nemotron-3.5-lightning-free
+    opencode_glm:
+      provider: opencode
+      model: glm-5.3-flash-free
+    nemotron_free:
       provider: openai_compatible
-      model: qwen/qwen3.8-27b:free
+      model: nvidia/nemotron-3.5-lightning:free
       api_key_env: OPENROUTER_API_KEY
       base_url: https://openrouter.ai/api/v1
-      temperature: 0.3
+      temperature: 0.7
+      max_tokens: 8192
+    cohere_coder_free:
+      provider: openai_compatible
+      model: cohere/north-mini-code:free
+      api_key_env: OPENROUTER_API_KEY
+      base_url: https://openrouter.ai/api/v1
+      temperature: 0.2
+      max_tokens: 8192
+    liquid_free:
+      provider: openai_compatible
+      model: liquid/lfm-2.5-2.6b:free
+      api_key_env: OPENROUTER_API_KEY
+      base_url: https://openrouter.ai/api/v1
+      temperature: 0.7
+      max_tokens: 4096
+    deepseek_free:
+      provider: openai_compatible
+      model: deepseek/deepseek-chat
+      api_key_env: OPENROUTER_API_KEY
+      base_url: https://openrouter.ai/api/v1
+      temperature: 0.7
+      max_tokens: 8192
+    mimo_free:
+      provider: openai_compatible
+      model: openrouter/free
+      api_key_env: OPENROUTER_API_KEY
+      base_url: https://openrouter.ai/api/v1
+      temperature: 0.7
+      max_tokens: 8192
+    qwen_coder_free:
+      provider: openai_compatible
+      model: cohere/north-mini-code:free
+      api_key_env: OPENROUTER_API_KEY
+      base_url: https://openrouter.ai/api/v1
+      temperature: 0.2
       max_tokens: 8192
     openai_gpt4o:
       provider: openai_compatible
@@ -183,6 +222,9 @@ brain:
       base_url: https://api.groq.com/openai/v1
       temperature: 0.7
       max_tokens: 4096
+    mock_fail:
+      provider: gemini
+      api_key_env: GEMINI_API_KEY
 memory:
   enabled: true
   db_path: data/memory/victoria.db
@@ -191,42 +233,42 @@ memory:
 tools:
   enabled: true
   confirm_dangerous: true
+  lock_reboot: true
+  lock_data_removal: true
   dangerous_commands:
+  - rm
   - rm -rf
+  - rmdir
+  - unlink
+  - shred
   - mkfs
   - dd if=
   - shutdown
   - reboot
+  - poweroff
+  - halt
   - systemctl stop
+  - systemctl reboot
+  - systemctl poweroff
   - '> /dev/'
 rea:
-  # TLS certificate verification for website scans.
-  # false = also scan dev/staging hosts with self-signed certs (default).
-  # true  = strict verification (recommended for production scanning).
   verify_ssl: false
 ide:
-  # Victoria's IDE surface (Monaco editor + file tree + terminal + AI).
-  # Everything is sandboxed to this workspace root (relative to the project root).
-  workspace: "."
-  # Allow running shell commands from the IDE terminal (bounded by run_timeout).
+  workspace: .
   allow_run: true
   run_timeout: 20
 mcp:
-  # Model Context Protocol servers connected at startup. Their tools become
-  # callable by Victoria's brain as <tool_prefix>_<toolname> (e.g. rea_open_binary).
-  # Requires Node.js 22+ (REA's requirement). Startup is resilient: if a server
-  # is unavailable it is skipped and Victoria still starts.
   enabled: true
   servers:
     rea:
       enabled: true
       command: npx
-      args: ["-y", "rea-agents@latest", "mcp"]
+      args:
+      - -y
+      - rea-agents@latest
+      - mcp
       tool_prefix: rea
       timeout: 600
-      # For native binary analysis, point REA at your engine (optional):
-      # env:
-      #   REA_ANALYSIS_PROVIDER: ghidra
 logging:
   level: INFO
   file: data/logs/victoria.log

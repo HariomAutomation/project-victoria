@@ -27,18 +27,25 @@ class AudioStream:
         self.backend = "unknown"
         self._proc: Optional[subprocess.Popen] = None
 
-        # Check sounddevice availability
-        try:
-            import sounddevice as sd
-            sd.query_devices()
-            self.backend = "sounddevice"
-        except Exception:
-            if shutil.which("arecord"):
-                self.backend = "arecord"
-            elif shutil.which("pw-record"):
-                self.backend = "pw-record"
-            else:
-                self.backend = "none"
+        # On modern Linux with PipeWire, pw-record captures full unattenuated native audio
+        if shutil.which("pw-record"):
+            self.backend = "pw-record"
+            # Auto-ensure microphone input volume is at optimal level (85%)
+            try:
+                if shutil.which("wpctl"):
+                    subprocess.run(["wpctl", "set-volume", "@DEFAULT_AUDIO_SOURCE@", "0.85"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception:
+                pass
+        else:
+            try:
+                import sounddevice as sd
+                sd.query_devices()
+                self.backend = "sounddevice"
+            except Exception:
+                if shutil.which("arecord"):
+                    self.backend = "arecord"
+                else:
+                    self.backend = "none"
 
         console.print(f"[dim]🎙️ Audio capture backend selected: {self.backend}[/dim]")
 

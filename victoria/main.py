@@ -115,6 +115,7 @@ def run_voice_mode(router: BrainRouter, memory: ConversationMemory):
         from victoria.voice.stt import SpeechToText
         from victoria.voice.tts import TextToSpeech
         from victoria.voice.speaker_verify import SpeakerVerifier
+        from victoria.voice.voice_events import broadcaster
 
         cfg = get_config()
         wake_detector = WakeWordDetector()
@@ -123,11 +124,38 @@ def run_voice_mode(router: BrainRouter, memory: ConversationMemory):
         tts = TextToSpeech()
         verifier = SpeakerVerifier()
 
+        # Auto-launch JARVIS Floating Holographic Arc Reactor widget if display is available
+        if os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"):
+            try:
+                import subprocess
+                check = subprocess.run(["pgrep", "-f", "victoria.hud.floating_widget"], capture_output=True)
+                if check.returncode != 0:
+                    console.print("[bold cyan]🚀 Launching JARVIS Floating Hologram Widget on screen...[/bold cyan]")
+                    subprocess.Popen([sys.executable, "-m", "victoria.hud.floating_widget"])
+            except Exception as e:
+                console.print(f"[dim]Widget launch notice: {e}[/dim]")
+
+        from victoria.voice.voice_model_manager import (
+            detect_model_choice, is_confirm_current, format_model_greeting,
+            format_model_switched, format_model_retained, get_friendly_model_name,
+            extract_task_after_model, detect_voice_choice
+        )
+
+        from victoria.voice.voice_onboarding import is_owner_enrolled, run_first_time_voice_enrollment
+        if not is_owner_enrolled():
+            console.print("[bold yellow]🎙️ First-time Voice Print setup required: Victoria needs to learn your authentic voice print.[/bold yellow]")
+            success = run_first_time_voice_enrollment(tts=tts, broadcaster=broadcaster)
+            if success:
+                verifier._load_profile()
+
         wake_phrase = cfg.wake_phrase
         console.print(f"[bold green]🎤 Listening for wake word: '{wake_phrase}' or 'विक्टोरिया'...[/bold green]")
         session_id = f"voice_{os.getpid()}"
         import threading
         stop_event = threading.Event()
+
+        # Emit initial standby event
+        broadcaster.standby()
 
         while not stop_event.is_set():
             # 1. Wait for wake word to initiate conversation
@@ -137,49 +165,69 @@ def run_voice_mode(router: BrainRouter, memory: ConversationMemory):
                 continue
 
             console.print("[bold cyan]⚡ Wake word detected! Entering active two-way conversation mode...[/bold cyan]")
+            broadcaster.wake()
 
-            # Speaker verification on wake word itself if enrolled
+            # Speaker verification on wake word: Ensure it is Hariom waking Victoria (threshold 0.45)
             if verifier.is_enrolled():
-                is_owner, similarity = verifier.verify(wake_audio)
+                is_owner, similarity = verifier.verify(wake_audio, threshold=0.45)
+                console.print(f"[dim]Wake speaker similarity: {similarity:.2f}[/dim]")
                 if not is_owner:
-                    console.print(f"[bold red]🚫 Unauthorized voice detected ({similarity:.2f} < {verifier.threshold:.2f})! Victoria is ignoring this request.[/bold red]")
+                    console.print(f"[bold yellow]🚫 Background wake ignored (similarity: {similarity:.2f} < 0.45). Standing by for Hariom...[/bold yellow]")
+                    broadcaster.standby()
                     continue
 
-            tts.speak("Ji Malik, kahiye, main sun rahi hoon.")
-            time.sleep(0.5)
+            # Greet owner and report current active model, inquiring which AI model they want to connect with
+            welcome_msg = format_model_greeting(router._active_model)
+            broadcaster.speaking(text=welcome_msg)
+            interrupted_audio = tts.speak(
+                welcome_msg,
+                interruptible=True,
+                listener=listener,
+                broadcaster=broadcaster,
+            )
+            time.sleep(0.1)
 
             # 2. Continuous Two-Way Conversation Session
-            # Stays in active dialogue loop so the owner does NOT need to repeat the wake word after each sentence!
             in_dialogue = True
             silence_count = 0
-            MAX_SILENCE_BEFORE_SLEEP = 2  # Allows ~6-8 seconds of thinking pauses
+            MAX_SILENCE_BEFORE_SLEEP = 6  # Allows ~15-20 seconds of thinking pauses
 
             while in_dialogue and not stop_event.is_set():
-                console.print("[bold green]👂 Victoria is listening (Two-way dialogue active)...[/bold green]")
-                audio_data = listener.record_until_silence()
+                if interrupted_audio is not None:
+                    console.print("[bold yellow]⚡ Handling Hariom's interruption immediately...[/bold yellow]")
+                    audio_data = interrupted_audio
+                    interrupted_audio = None
+                else:
+                    console.print("[bold green]👂 Victoria is listening (Two-way dialogue active)...[/bold green]")
+                    broadcaster.listening()
+                    audio_data = listener.record_until_silence()
 
                 if audio_data is None or len(audio_data) < int(listener.sample_rate * 0.35):
                     silence_count += 1
                     if silence_count >= MAX_SILENCE_BEFORE_SLEEP:
                         console.print("[dim]Dialogue paused. Victoria returning to standby...[/dim]")
-                        tts.speak("Theek hai Malik, main background me hoon. Jab bhi zaroorat ho, bas awaz dijiyega.")
-                        time.sleep(0.5)
+                        broadcaster.standby()
                         in_dialogue = False
                     continue
 
                 # Speech detected, reset silence counter
                 silence_count = 0
 
-                # 3. Speaker verification (security check)
+                # 3. Speaker verification check: Listen exclusively to Hariom, silently ignore background chatter & self-echo
                 if verifier.is_enrolled():
-                    is_owner, similarity = verifier.verify(audio_data)
-                    console.print(f"[dim]Speaker similarity: {similarity:.2f}[/dim]")
+                    # Reject Victoria's own speaker output immediately!
+                    if verifier.is_victoria_echo(audio_data):
+                        console.print("[dim]🔇 Victoria speaker echo filtered out. Staying in dialogue...[/dim]")
+                        continue
+
+                    dur_sec = len(audio_data) / listener.sample_rate
+                    # Adaptive threshold: Short utterances (< 2.2s) or barge-in interruptions get 0.40 to prevent false rejects; longer get 0.44
+                    req_thresh = 0.40 if (interrupted_audio is not None or dur_sec < 2.2) else 0.44
+                    is_owner, similarity = verifier.verify(audio_data, threshold=req_thresh)
+                    console.print(f"[dim]Speaker similarity: {similarity:.2f} (threshold: {req_thresh})[/dim]")
                     if not is_owner:
-                        console.print(f"[bold red]🚫 Voice did not match owner ({similarity:.2f} < {verifier.threshold:.2f}). Exiting dialogue.[/bold red]")
-                        tts.speak("Maaf kijiye, awaz match nahi hui.")
-                        time.sleep(0.6)
-                        in_dialogue = False
-                        break
+                        console.print(f"[bold yellow]🚫 Background voice ignored (similarity: {similarity:.2f} < {req_thresh}). Listening only for Hariom...[/bold yellow]")
+                        continue
 
                 # 4. Speech-to-Text
                 text, detected_lang, confidence = stt.transcribe(audio_data)
@@ -188,28 +236,180 @@ def run_voice_mode(router: BrainRouter, memory: ConversationMemory):
                 if not text.strip() or len(text.strip()) < 2:
                     continue
 
-                # Check for explicit goodbye / dismissal phrases
-                dismiss_phrases = ["बाय", "अलविदा", "बस विक्टोरिया", "बाद में बात करते हैं", "शांत रहो", "bye", "goodbye", "go to sleep", "standby"]
+                # Filter out isolated passive acknowledgments ("जी हां", "हाँ", "अच्छा", "ok", "hmm", "हम्म", "ठीक")
+                # so Victoria doesn't keep looping with "जी हरिओम, मैं तैयार हूँ। बताइए क्या करना है?"
+                passive_words = ["जी हां", "जी हाँ", "हाँ", "अच्छा", "ok", "hmm", "हम्म", "ठीक", "जी", "हां", "ना"]
+                cleaned_clean = "".join(c for c in text.lower().strip() if c.isalnum() or c.isspace()).strip()
+                if cleaned_clean in passive_words:
+                    console.print(f"[dim]Passive acknowledgment '{text}' acknowledged silently.[/dim]")
+                    broadcaster.listening()
+                    continue
+
+                # Check for pause / wait phrases (e.g. "रुको", "रुक जाओ", "सुनो", "अरे सुनो", "wait", "hold on", "चुप")
+                pause_phrases = ["रुको", "रुक जाओ", "ठहरो", "सुनो", "अरे सुनो", "wait", "hold on", "pause", "ek minute", "एक मिनट", "रुको रुको", "चुप", "चुप रहो", "stop", "shant", "शांत"]
+                cleaned_text = text.strip().lower()
+                if (any(cleaned_text == p or cleaned_text.startswith(p + " ") for p in pause_phrases)) and len(cleaned_text.split()) <= 3:
+                    ack_msg = "जी हरिओम, मैं रुक गई।"
+                    broadcaster.speaking(text=ack_msg)
+                    interrupted_audio = tts.speak(
+                        ack_msg,
+                        interruptible=True,
+                        listener=listener,
+                        broadcaster=broadcaster,
+                    )
+                    broadcaster.listening()
+                    time.sleep(0.3)
+                    continue
+
+                # Check for explicit goodbye / dismissal / mic-off phrases
+                dismiss_phrases = [
+                    "बाय", "अलविदा", "बस विक्टोरिया", "बाद में बात करते हैं", "शांत रहो", "शांत हो जाओ", "शांत",
+                    "चुप रहो", "माइक बंद", "माइक ऑफ", "माइक बंद करो", "माइक ऑफ करो", "मत सुनो",
+                    "मेरी बात मत सुनो", "साइलेंट मोड", "bye", "goodbye", "go to sleep", "standby",
+                    "mic off", "turn off mic", "silent mode", "sleep", "stop listening", "chup raho",
+                    "shant raho", "shant ho jao", "shaant", "shant", "bas victoria", "kuch mat bolo",
+                    "baat mat suno", "mat suno", "band karo", "band kar do", "so jao", "sojao", "stop",
+                ]
                 if any(p in text.lower() for p in dismiss_phrases):
-                    tts.speak("जी मालिक, अलविदा! जब भी याद करेंगे मैं तुरंत हाजिर हो जाऊँगी।")
+                    farewell = "जी हरिओम! माइक बंद कर रही हूँ। जब भी ज़रूरत हो, बस 'हे विक्टोरिया' बोल दीजिएगा।"
+                    broadcaster.speaking(text=farewell)
+                    tts.speak(farewell, interruptible=False)
+                    broadcaster.standby()
                     in_dialogue = False
                     break
 
-                # 5. Think & Formulate Conversational Two-Way Response
+                # Voice Print Re-enrollment command
+                if any(k in text.lower() for k in ["voice print", "वॉइस प्रिंट", "आवाज़ रिकॉर्ड", "voice profile", "re-enroll"]):
+                    tts.speak("जी हरिओम, चलिए आपकी वॉयस प्रिंट दोबारा रिकॉर्ड करते हैं।")
+                    run_first_time_voice_enrollment(tts=tts, broadcaster=broadcaster)
+                    verifier._load_profile()
+                    continue
+
+                # B. Check if user requested Victoria to research & acquire a new skill/knowledge
+                from victoria.brain.skill_rnd import detect_skill_request, get_skill_rnd_engine
+                skill_topic = detect_skill_request(text)
+                if skill_topic:
+                    progress_msg = f"जी हरिओम! मैं अभी इंटरनेट पर '{skill_topic}' को लेकर गहन R&D कर रही हूँ और यह नई स्किल अपने अंदर जोड़ रही हूँ। कृपया कुछ क्षण प्रतीक्षा करें..."
+                    broadcaster.thinking(text=f"R&D: {skill_topic}...")
+                    broadcaster.speaking(text=progress_msg)
+                    tts.speak(progress_msg, interruptible=False)
+
+                    try:
+                        rnd_engine = get_skill_rnd_engine()
+                        res = rnd_engine.acquire_skill(topic=skill_topic)
+                        acquired_speech = res.get(
+                            "speech",
+                            f"जी हरिओम! मैंने इंटरनेट से R&D करके '{skill_topic}' की स्किल और नॉलेज अपने अंदर सफलतापूर्वक शामिल कर ली है। अब यह स्किल मेरे पास उपलब्ध है—इस स्किल का उपयोग करके आप मुझसे क्या काम करवाना चाहते हैं?",
+                        )
+                    except Exception as rnd_err:
+                        console.print(f"[red]Skill R&D error: {rnd_err}[/red]")
+                        acquired_speech = f"माफ़ कीजिए हरिओम, '{skill_topic}' पर R&D करते समय कुछ समस्या आई। क्या मैं दोबारा प्रयास करूँ?"
+
+                    broadcaster.speaking(text=acquired_speech)
+                    interrupted_audio = tts.speak(
+                        acquired_speech,
+                        interruptible=False,
+                        listener=listener,
+                        broadcaster=broadcaster,
+                    )
+                    broadcaster.listening()
+                    time.sleep(0.3)
+                    continue
+
+                # A. Check if user requested to switch or connect to a specific AI model
+                model_detected = detect_model_choice(text)
+                if model_detected:
+                    model_key, display_name = model_detected
+                    router.switch_model(model_key)
+                    cfg.set_active_model(model_key, persist=True)
+                    broadcaster.emit("model_switched", state="connected", model=display_name)
+
+                    # Check if user also gave a task in the same sentence
+                    followup_task = extract_task_after_model(text)
+                    if followup_task:
+                        confirm_msg = f"जी हरिओम! मैंने {display_name} से वॉइस कनेक्शन जोड़ दिया है। अब आपका काम कर रही हूँ।"
+                        broadcaster.speaking(text=confirm_msg)
+                        interrupted_audio = tts.speak(
+                            confirm_msg,
+                            interruptible=False,
+                            listener=listener,
+                            broadcaster=broadcaster,
+                        )
+                        task_to_run = followup_task
+                    else:
+                        confirm_msg = format_model_switched(display_name)
+                        broadcaster.speaking(text=confirm_msg)
+                        interrupted_audio = tts.speak(
+                            confirm_msg,
+                            interruptible=False,
+                            listener=listener,
+                            broadcaster=broadcaster,
+                        )
+                        broadcaster.listening()
+                        time.sleep(0.3)
+                        continue
+                elif is_confirm_current(text):
+                    # B. Check if user confirmed to keep the current active model
+                    cur_name = get_friendly_model_name(router._active_model)
+                    confirm_msg = format_model_retained(cur_name)
+                    broadcaster.speaking(text=confirm_msg)
+                    interrupted_audio = tts.speak(
+                        confirm_msg,
+                        interruptible=False,
+                        listener=listener,
+                        broadcaster=broadcaster,
+                    )
+                    broadcaster.listening()
+                    time.sleep(0.3)
+                    continue
+                elif detect_voice_choice(text):
+                    # C. Check if user requested to switch Victoria's AI speaking voice
+                    v_key, v_name = detect_voice_choice(text)
+                    if v_key == "cycle":
+                        new_key, new_name = tts.cycle_next_voice(persist=True)
+                    else:
+                        new_key, new_name = tts.set_voice(v_key, persist=True)
+                    voice_msg = f"जी हरिओम! मैंने अपनी आवाज़ बदलकर {new_name} कर ली है। क्या अब यह आवाज़ आपको पसंद आ रही है?"
+                    broadcaster.speaking(text=voice_msg)
+                    interrupted_audio = tts.speak(
+                        voice_msg,
+                        interruptible=False,
+                        listener=listener,
+                        broadcaster=broadcaster,
+                    )
+                    broadcaster.listening()
+                    time.sleep(0.3)
+                    continue
+                else:
+                    task_to_run = text
+
+                # 5. Think & Formulate Conversational Response using the connected model
+                broadcaster.thinking(text=task_to_run)
                 try:
-                    response = router.think(text)
+                    response = router.think(task_to_run)
+                    if not response or not response.strip():
+                        response = "जी हरिओम, मैंने आपकी बात नोट कर ली है।"
                 except Exception as brain_err:
                     console.print(f"[red]Brain error: {brain_err}[/red]")
-                    response = f"Malik, error aaya: {str(brain_err)[:80]}."
+                    response = "माफ़ कीजिए हरिओम, मॉडल से जवाब नहीं मिल पाया। क्या मैं दूसरे मॉडल से कोशिश करूँ?"
 
-                console.print(f"[bold magenta]Victoria:[/bold magenta] {response}")
+                cur_model_label = get_friendly_model_name(router._active_model)
+                console.print(f"[bold magenta]Victoria ({cur_model_label}):[/bold magenta] {response}")
 
-                # 6. Speak response in Hindi back to owner
+                # 6. Speak response in Hindi back to owner with Barge-In monitoring
                 try:
-                    tts.speak(response)
-                    time.sleep(0.5)
+                    broadcaster.speaking(text=response)
+                    interrupted_audio = tts.speak(
+                        response,
+                        interruptible=True,
+                        listener=listener,
+                        broadcaster=broadcaster,
+                    )
+                    broadcaster.listening()
+                    time.sleep(0.1)
                 except Exception as tts_err:
                     console.print(f"[red]TTS error: {tts_err}[/red]")
+                    broadcaster.listening()
 
                 # 7. Record in persistent memory
                 if memory.enabled:
@@ -238,7 +438,8 @@ def run_voice_mode(router: BrainRouter, memory: ConversationMemory):
 
 def main():
     parser = argparse.ArgumentParser(description="Victoria - Personal AI Assistant for Linux with REA Power")
-    parser.add_argument("--mode", choices=["text", "voice", "hud"], default="text", help="Operating mode: text, voice, or hud")
+    parser.add_argument("--mode", choices=["text", "voice", "hud", "widget", "floating"], default="text", help="Operating mode: text, voice, hud, or widget")
+    parser.add_argument("--widget", action="store_true", help="Launch JARVIS Floating Arc Reactor On-Screen Widget")
     parser.add_argument("--hud", action="store_true", help="Launch Victoria Holographic 3D HUD Web Server")
     parser.add_argument("--host", type=str, default="127.0.0.1", help="HUD server host (default 127.0.0.1; use 0.0.0.0 to expose on the LAN)")
     parser.add_argument("--port", type=int, default=7860, help="HUD server port (default 7860)")
@@ -262,6 +463,12 @@ def main():
         print_banner()
         from scripts.enroll_voice import test_voice
         test_voice()
+        sys.exit(0)
+
+    # Handle direct Floating JARVIS Arc Reactor widget execution
+    if args.widget or args.mode in ("widget", "floating"):
+        from victoria.hud.floating_widget import run_floating_widget
+        run_floating_widget()
         sys.exit(0)
 
     # Handle direct HUD Web Dashboard execution

@@ -63,9 +63,26 @@ class ActionRequest(BaseModel):
     value: Optional[str] = None
 
 
+# Live voice pipeline state tracking (synced from voice events broadcaster)
+_current_voice_state = "IDLE"
+
+def _on_hud_voice_event(payload: dict):
+    global _current_voice_state
+    st = payload.get("state", "").upper()
+    if st in ("LISTENING", "THINKING", "SPEAKING", "STANDBY"):
+        _current_voice_state = "IDLE" if st == "STANDBY" else st
+
+try:
+    from victoria.voice.voice_events import VoiceEventListener
+    _voice_event_listener = VoiceEventListener(on_event=_on_hud_voice_event)
+    _voice_event_listener.start()
+except Exception:
+    pass
+
+
 @app.get("/api/status")
 def get_status():
-    """Get Victoria's system health, model status, and live hardware gauges."""
+    """Get Victoria's system health, model status, live hardware gauges, and voice state."""
     cfg = get_config()
     try:
         import psutil
@@ -82,6 +99,7 @@ def get_status():
         "active_model": cfg.get_active_model_name(),
         "available_models": list(cfg.get("brain.models", {}).keys()),
         "tools_count": len(tool_registry.list_tools()),
+        "voice_state": _current_voice_state,
         "telemetry": {
             "cpu_percent": cpu,
             "ram_percent": mem.percent if mem else 0,
@@ -97,14 +115,15 @@ def get_status():
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
     """Send user message to Victoria's brain and optionally generate Hindi speech audio."""
+    import asyncio
     user_text = req.message.strip()
     if not user_text:
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
     session_id = "hud_web_session"
 
-    # Brain thoughts & tool execution
-    response_text = brain_router.think(user_text)
+    # Brain thoughts & tool execution in thread so it doesn't block event loop
+    response_text = await asyncio.to_thread(brain_router.think, user_text)
 
     # Save to memory
     if memory.enabled:
@@ -238,6 +257,45 @@ def select_brain_model(req: BrainSelectRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@app.get("/api/voice/status")
+def get_voice_status():
+    """Get owner voice enrollment and biometric security status."""
+    import json
+    from victoria.voice.voice_onboarding import is_owner_enrolled, get_profile_paths
+    cfg = get_config()
+    npy_path, meta_path = get_profile_paths()
+    enrolled = is_owner_enrolled()
+    meta = {}
+    if meta_path.exists():
+        try:
+            with open(meta_path, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+        except Exception:
+            pass
+
+    return {
+        "enrolled": enrolled,
+        "security_mode": "Strict Owner Only" if enrolled else "Open / Onboarding Required",
+        "threshold": cfg.get("voice.speaker_verify.threshold", 0.52),
+        "model": "CAM++ Neural ONNX",
+        "metadata": meta,
+    }
+
+
+@app.post("/api/voice/enroll")
+async def trigger_voice_enroll():
+    """Trigger interactive voice print enrollment recording sequence."""
+    from victoria.voice.tts import TextToSpeech
+    from victoria.voice.voice_events import broadcaster
+    from victoria.voice.voice_onboarding import run_first_time_voice_enrollment
+    import asyncio
+
+    tts = TextToSpeech()
+    loop = asyncio.get_event_loop()
+    success = await loop.run_in_executor(None, run_first_time_voice_enrollment, tts, broadcaster, False)
+    return {"status": "ok" if success else "failed", "enrolled": success}
+
+
 class UseModelRequest(BaseModel):
     provider: str
     model_id: str
@@ -272,8 +330,10 @@ def use_discovered_model(req: UseModelRequest):
     except Exception:
         pass
 
-    if provider in ("openrouter", "opencode"):
+    if provider == "openrouter":
         cfg.set_openrouter_model(model_id)
+    elif provider == "opencode":
+        cfg.set_opencode_model(model_id)
 
     try:
         import yaml
@@ -314,7 +374,6 @@ def discover_brain_models(
         env_map = {
             "gemini": "GEMINI_API_KEY",
             "openrouter": "OPENROUTER_API_KEY",
-            "opencode": "OPENROUTER_API_KEY",
             "groq": "GROQ_API_KEY",
             "openai": "OPENAI_API_KEY",
             "sarvam": "SARVAM_API_KEY",
@@ -356,12 +415,45 @@ def connect_brain_api_key(req: BrainKeyRequest):
     """
     Validate, store, and persist an AI model API key, then activate the model.
     """
-    key = req.api_key.strip().strip("'\"")
-    if not key:
-        raise HTTPException(status_code=400, detail="API Key cannot be empty. कृपया API Key दर्ज करें।")
-
     provider = req.provider.lower().strip()
     cfg = get_config()
+
+    if provider == "opencode":
+        chosen_model = req.model_name or "deepseek-v4.1-flash-free"
+        try:
+            cfg._raw["brain"]["models"]["opencode"]["model"] = chosen_model
+            import yaml
+            with open(cfg.config_path, "w", encoding="utf-8") as f:
+                yaml.dump(cfg._raw, f, default_flow_style=False, sort_keys=False)
+        except Exception:
+            pass
+        brain_router.reload_provider("opencode")
+        brain_router.switch_model("opencode")
+        cfg.set_active_model("opencode", persist=True)
+        return {
+            "status": "ok",
+            "provider": "opencode",
+            "active_model": "opencode",
+            "message": f"OpenCode model '{chosen_model}' activated successfully (Free Local Engine)!",
+            "models_status": cfg.get_models_status(),
+        }
+
+    key = req.api_key.strip().strip("'\"")
+    if not key:
+        env_map = {
+            "gemini": "GEMINI_API_KEY",
+            "openrouter": "OPENROUTER_API_KEY",
+            "groq": "GROQ_API_KEY",
+            "openai": "OPENAI_API_KEY",
+            "sarvam": "SARVAM_API_KEY",
+        }
+        env_var = env_map.get(provider)
+        if env_var:
+            key = (cfg.get_api_key(env_var) or "").strip().strip("'\"")
+
+    if not key:
+        raise HTTPException(status_code=400, detail=f"API Key cannot be empty. कृपया {provider.upper()} API Key दर्ज करें या .env फ़ाइल में जोड़ें।")
+
     verified_model = None
 
     # 1. Verification Test

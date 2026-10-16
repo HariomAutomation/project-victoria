@@ -48,13 +48,15 @@
             <button class="action-btn" id="volDownBtn" title="Volume Down">🔉 Vol -</button>
             <button class="action-btn" id="volUpBtn" title="Volume Up">🔊 Vol +</button>
             <select id="modelSelector" class="cyber-select" title="Active AI Brain">
-                <option value="gemini">Gemini 3.8 Flash (latest)</option>
-                <option value="gemini_flash_lite">Gemini 3.5 Flash-Lite (cheap)</option>
-                <option value="gemini_pro">Gemini 3.1 Pro (reasoning)</option>
-                <option value="openrouter">OpenRouter — Free Auto-Router</option>
-                <option value="openrouter_free">OpenRouter — Gemma 4 31B (Free)</option>
-                <option value="opencode">OpenCode — Qwen3.8 27B (Free)</option>
-                <option value="groq">Groq Cloud (fast, free tier)</option>
+                <option value="gemini">Gemini 3.5 Flash-Lite (Fast & Reliable)</option>
+                <option value="gemini_pro">Gemini 3.1 Pro (Reasoning)</option>
+                <option value="opencode">OpenCode — DeepSeek V4.1 Flash (Free Local)</option>
+                <option value="opencode_mimo">OpenCode — Xiaomi MiMo Free (Local)</option>
+                <option value="opencode_nemotron">OpenCode — Nemotron 3.5 Free (Local)</option>
+                <option value="openrouter">OpenRouter — Cloud Free Auto-Router</option>
+                <option value="nemotron_free">OpenRouter — Nemotron 3.5 Lightning</option>
+                <option value="cohere_coder_free">OpenRouter — Cohere North Coder</option>
+                <option value="groq">Groq Cloud (Fast LPUs)</option>
                 <option value="openai_gpt4o">OpenAI GPT-4o Mini</option>
                 <option value="sarvam">Sarvam AI (Indic)</option>
                 <option value="local_fast">Ollama — local</option>
@@ -101,6 +103,27 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Owner Voice Biometric Lock Deck -->
+            <div class="glass-panel voice-biometric-panel" style="margin-top: 14px;">
+                <div class="panel-header">
+                    <span class="panel-title">OWNER VOICE BIOMETRIC LOCK</span>
+                    <span class="state-badge" id="voiceLockBadge">CHECKING</span>
+                </div>
+                <div class="voice-lock-content" style="padding: 12px; font-size: 13px; color: #94a3b8;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span>Security Mode:</span>
+                        <span id="voiceSecurityMode" style="color: #00f0ff; font-weight: bold;">Strict Owner Only</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <span>Voice Print Status:</span>
+                        <span id="voicePrintStatus" style="color: #a855f7;">Checking...</span>
+                    </div>
+                    <button type="button" class="cyber-btn full-width" id="startVoiceEnrollBtn" style="font-size: 12px; padding: 8px 12px;">
+                        🎙️ वॉयस प्रिंट रिकॉर्ड / री-कैलिब्रेट करें
+                    </button>
+                </div>
+            </div>
         </section>
 
         <!-- Center: Interactive Hindi/English AI Console -->
@@ -119,7 +142,7 @@
                         <div class="msg-avatar">V</div>
                         <div class="msg-body">
                             <div class="msg-sender">Victoria</div>
-                            <div class="msg-text">नमस्ते मालिक! मैं विक्टोरिया हूँ। आपका सिस्टम, REA रिवर्स इंजीनियरिंग इंजन, और लीनटोकन पूरी तरह से तैयार हैं। आप मुझे कोई भी आदेश दे सकते हैं या बोल सकते हैं!</div>
+                            <div class="msg-text">नमस्ते हरिओम जी! मैं विक्टोरिया हूँ। आपका सिस्टम, REA रिवर्स इंजीनियरिंग इंजन, और लीनटोकन पूरी तरह से तैयार हैं। आप मुझे कोई भी आदेश दे सकते हैं या बोल सकते हैं!</div>
                         </div>
                     </div>
                 </div>
@@ -265,19 +288,22 @@
                 <!-- Provider Tabs -->
                 <div class="brain-tabs">
                     <button class="brain-tab-btn active" data-provider="gemini">
-                        <span class="tab-icon">🌟</span> Google Gemini
+                        <span class="tab-icon">🌟</span> Google Gemini <span class="status-dot dot-warn" id="geminiTabDot"></span>
+                    </button>
+                    <button class="brain-tab-btn" data-provider="opencode">
+                        <span class="tab-icon">🚀</span> OpenCode (Local Free) <span class="status-dot dot-green" id="opencodeTabDot"></span>
                     </button>
                     <button class="brain-tab-btn" data-provider="openrouter">
-                        <span class="tab-icon">🌐</span> OpenRouter / OpenCode
+                        <span class="tab-icon">🌐</span> OpenRouter (Cloud) <span class="status-dot dot-warn" id="openrouterTabDot"></span>
                     </button>
                     <button class="brain-tab-btn" data-provider="groq">
-                        <span class="tab-icon">⚡</span> Groq Cloud
+                        <span class="tab-icon">⚡</span> Groq Cloud <span class="status-dot dot-warn" id="groqTabDot"></span>
                     </button>
                     <button class="brain-tab-btn" data-provider="openai">
-                        <span class="tab-icon">🤖</span> OpenAI
+                        <span class="tab-icon">🤖</span> OpenAI <span class="status-dot dot-warn" id="openaiTabDot"></span>
                     </button>
                     <button class="brain-tab-btn" data-provider="ollama">
-                        <span class="tab-icon">💻</span> Ollama (Offline)
+                        <span class="tab-icon">💻</span> Ollama (Offline) <span class="status-dot dot-green"></span>
                     </button>
                 </div>
 
@@ -311,9 +337,12 @@
                         <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="cyber-link">Free API Key ↗</a>
                     </div>
                     <div class="form-group">
-                        <label for="geminiApiKeyInput">Gemini API Key (GEMINI_API_KEY)</label>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                            <label for="geminiApiKeyInput" style="margin-bottom:0;">Gemini API Key (GEMINI_API_KEY)</label>
+                            <span class="key-status-indicator" id="geminiKeyStatus"></span>
+                        </div>
                         <div class="input-password-wrapper">
-                            <input type="password" id="geminiApiKeyInput" placeholder="Paste your AIzaSy... key here" autocomplete="off">
+                            <input type="password" id="geminiApiKeyInput" placeholder="Paste your AIzaSy... or AQ... key here" autocomplete="off">
                             <button type="button" class="toggle-pwd-btn" data-target="geminiApiKeyInput">👁️</button>
                         </div>
                     </div>
@@ -331,17 +360,55 @@
                     </div>
                 </div>
 
-                <!-- 2. OpenRouter & OpenCode -->
+                <!-- 2. OpenCode (Local Free Engine) -->
+                <div class="provider-panel hidden" id="panel-opencode">
+                    <div class="provider-header">
+                        <div class="provider-info">
+                            <h3>OpenCode (Local Free AI Engine)</h3>
+                            <p class="provider-desc">OpenCode आपके कंप्यूटर पर एक्टिव है! DeepSeek V4.1 Flash, Xiaomi MiMo, Nemotron 3.5 और GLM बिना किसी API Key के 100% मुफ़्त काम करते हैं।</p>
+                        </div>
+                        <span class="badge badge-success" style="padding:4px 8px; font-size:0.75rem;">● 100% FREE ENGINE</span>
+                    </div>
+                    <div class="form-group">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                            <label for="opencodeModelSelect" style="margin-bottom:0;">चुनें OpenCode मॉडल:</label>
+                            <span style="font-size:0.75rem; color:var(--neon-green); font-family:var(--font-mono); font-weight:600;">⚡ No API Key Needed</span>
+                        </div>
+                        <select id="opencodeModelSelect" class="cyber-select full-width">
+                            <option value="deepseek-v4.1-flash-free">DeepSeek V4.1 Flash Free (Ultra-Fast &amp; Smart)</option>
+                            <option value="mimo-v2.6-flash-free">Xiaomi MiMo-V2.6 Flash Free (Multimodal)</option>
+                            <option value="nemotron-3.5-lightning-free">NVIDIA Nemotron 3.5 Lightning Free (1M Context)</option>
+                            <option value="glm-5.3-flash-free">GLM-5.3 Flash Free</option>
+                            <option value="nemotron-3-ultra-free">NVIDIA Nemotron 3 Ultra Free (1M Context)</option>
+                            <option value="cat-jam-free">Cat Jam Free</option>
+                            <option value="space-bunny-free">Space Bunny Free</option>
+                            <option value="longcat-2.5-preview-free">LongCat 2.5 Preview Free</option>
+                        </select>
+                        <span style="font-size:0.7rem; color:var(--neon-green); font-family:var(--font-mono); margin-top:4px; display:block;">
+                            ✨ OpenCode CLI के ज़रिये DeepSeek और Xiaomi MiMo सीधे सक्रिय होंगे।
+                        </span>
+                    </div>
+                    <div class="provider-actions">
+                        <button type="button" class="cyber-action-btn" id="activateOpenCodeBtn">
+                            <span>⚡ Activate OpenCode Model</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 3. OpenRouter (Cloud Gateway) -->
                 <div class="provider-panel hidden" id="panel-openrouter">
                     <div class="provider-header">
                         <div class="provider-info">
-                            <h3>OpenRouter &amp; OpenCode</h3>
+                            <h3>OpenRouter (Cloud Gateway)</h3>
                             <p class="provider-desc">Key दर्ज करते ही नीचे उपलब्ध सभी 100% Free AI मॉडल्स की लाइव सूची आ जाएगी। जो चाहें वह चुनें!</p>
                         </div>
                         <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" class="cyber-link">Get Key ↗</a>
                     </div>
                     <div class="form-group">
-                        <label for="openrouterApiKeyInput">OpenRouter API Key (OPENROUTER_API_KEY)</label>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                            <label for="openrouterApiKeyInput" style="margin-bottom:0;">OpenRouter API Key (OPENROUTER_API_KEY)</label>
+                            <span class="key-status-indicator" id="openrouterKeyStatus"></span>
+                        </div>
                         <div class="input-password-wrapper">
                             <input type="password" id="openrouterApiKeyInput" placeholder="Paste your sk-or-v1-... key here" autocomplete="off">
                             <button type="button" class="toggle-pwd-btn" data-target="openrouterApiKeyInput">👁️</button>
@@ -355,10 +422,18 @@
                             </button>
                         </div>
                         <select id="openrouterModelSelect" class="cyber-select full-width">
-                            <option value="openrouter/free">OpenRouter: Free Auto-Router (Always Free)</option>
+                            <option value="openrouter/free">OpenRouter: Free Auto-Router (Always Free - Default)</option>
                             <option value="nvidia/nemotron-3.5-lightning:free">NVIDIA: Nemotron 3.5 Lightning (Free - 1M Context)</option>
-                            <option value="cohere/north-mini-code:free">Cohere: North Mini Code (Free)</option>
-                            <option value="liquid/lfm-2.5-2.6b:free">Liquid: LFM 2.5 2.6B (Free)</option>
+                            <option value="cohere/north-mini-code:free">Cohere: North Mini Code (Free - Top Coder)</option>
+                            <option value="liquid/lfm-2.5-2.6b:free">LiquidAI: LFM 2.5 2.6B (Free - Ultra Fast)</option>
+                            <option value="deepseek/deepseek-chat">DeepSeek: V3 Chat (OpenCode)</option>
+                            <option value="deepseek/deepseek-r1">DeepSeek: R1 (Deep Reasoning)</option>
+                            <option value="deepseek/deepseek-chat:free">DeepSeek: V3 Chat Free (Auto-Routed)</option>
+                            <option value="xiaomi/mimo:free">Xiaomi: Mimo Free (Auto-Routed)</option>
+                            <option value="qwen/qwen-2.5-coder-32b-instruct:free">Qwen: 2.5 Coder 32B Free (Auto-Routed)</option>
+                            <option value="qwen/qwen3.8-27b:free">Qwen: Qwen3.8 27B (Free)</option>
+                            <option value="meta-llama/llama-3.3-70b-instruct:free">Meta: Llama 3.3 70B (Free)</option>
+                            <option value="mistralai/mistral-7b-instruct:free">Mistral: 7B Instruct (Free)</option>
                             <option value="google/gemma-4-31b-it:free">Google: Gemma 4 31B IT (Free)</option>
                         </select>
                         <span id="freeModelNote" style="font-size:0.7rem; color:var(--neon-green); font-family:var(--font-mono); margin-top:4px; display:block;">
@@ -382,7 +457,10 @@
                         <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" class="cyber-link">Get Key ↗</a>
                     </div>
                     <div class="form-group">
-                        <label for="groqApiKeyInput">Groq API Key (GROQ_API_KEY)</label>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                            <label for="groqApiKeyInput" style="margin-bottom:0;">Groq API Key (GROQ_API_KEY)</label>
+                            <span class="key-status-indicator" id="groqKeyStatus"></span>
+                        </div>
                         <div class="input-password-wrapper">
                             <input type="password" id="groqApiKeyInput" placeholder="Paste your gsk_... key here" autocomplete="off">
                             <button type="button" class="toggle-pwd-btn" data-target="groqApiKeyInput">👁️</button>
@@ -405,7 +483,10 @@
                         <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" class="cyber-link">Get Key ↗</a>
                     </div>
                     <div class="form-group">
-                        <label for="openaiApiKeyInput">OpenAI API Key (OPENAI_API_KEY)</label>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                            <label for="openaiApiKeyInput" style="margin-bottom:0;">OpenAI API Key (OPENAI_API_KEY)</label>
+                            <span class="key-status-indicator" id="openaiKeyStatus"></span>
+                        </div>
                         <div class="input-password-wrapper">
                             <input type="password" id="openaiApiKeyInput" placeholder="Paste your sk-... key here" autocomplete="off">
                             <button type="button" class="toggle-pwd-btn" data-target="openaiApiKeyInput">👁️</button>
@@ -458,6 +539,6 @@
 
     <script src="js/brain_3d.js?v=2.1"></script>
     <script src="js/audio_wave.js?v=2.1"></script>
-    <script src="js/app.js?v=2.2"></script>
+    <script src="js/app.js?v=2.3"></script>
 </body>
 </html>

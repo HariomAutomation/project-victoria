@@ -120,6 +120,8 @@ class OpenAICompatibleProvider(BaseProvider):
         }
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
+            if "sarvam" in self.base_url.lower():
+                headers["api-subscription-key"] = self.api_key
 
         # For OpenRouter, add extra headers
         if "openrouter" in self.base_url.lower():
@@ -138,7 +140,7 @@ class OpenAICompatibleProvider(BaseProvider):
             payload["tool_choice"] = "auto"
 
         try:
-            with httpx.Client(timeout=120.0) as client:
+            with httpx.Client(timeout=35.0) as client:
                 response = client.post(url, json=payload, headers=headers)
                 response.raise_for_status()
                 data = response.json()
@@ -149,7 +151,7 @@ class OpenAICompatibleProvider(BaseProvider):
             text = message.get("content", "") or ""
             tool_calls = []
 
-            raw_tool_calls = message.get("tool_calls", [])
+            raw_tool_calls = message.get("tool_calls") or []
             for tc in raw_tool_calls:
                 func = tc.get("function", {})
                 args_str = func.get("arguments", "{}")
@@ -177,6 +179,8 @@ class OpenAICompatibleProvider(BaseProvider):
         except httpx.HTTPStatusError as e:
             error_body = e.response.text[:500] if e.response else str(e)
             console.print(f"[red]❌ API error ({e.response.status_code}): {error_body}[/red]")
+            if e.response.status_code in (400, 404, 429, 402, 503, 502, 504) or any(k in error_body.lower() for k in ["quota", "rate limit", "credits", "token", "capacity", "unavailable", "not a valid", "overloaded"]):
+                raise RuntimeError(f"HTTP {e.response.status_code} ({self.model_name}): {error_body}")
             return BrainResponse(
                 text=f"API error: {error_body}",
                 model_used=self.model_name,

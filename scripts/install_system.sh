@@ -10,11 +10,20 @@
 
 set -e
 
-PROJECT_DIR="/run/media/hariom/DATA_SAFE/PROJECT VICTORIA"
+# Dynamically resolve project directory
+TARGET_FILE="${BASH_SOURCE[0]}"
+while [ -L "$TARGET_FILE" ]; do
+    TARGET_DIR="$(cd -P "$(dirname "$TARGET_FILE")" >/dev/null 2>&1 && pwd)"
+    TARGET_FILE="$(readlink "$TARGET_FILE")"
+    [[ $TARGET_FILE != /* ]] && TARGET_FILE="$TARGET_DIR/$TARGET_FILE"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$TARGET_FILE")" >/dev/null 2>&1 && pwd)"
+PROJECT_DIR="$(cd -P "$SCRIPT_DIR/.." >/dev/null 2>&1 && pwd)"
 cd "$PROJECT_DIR"
 
 echo "============================================================"
 echo "⚡ Installing Project Victoria on Ubuntu Linux..."
+echo "📂 Project Root: $PROJECT_DIR"
 echo "============================================================"
 
 # 1. Create directories
@@ -38,10 +47,19 @@ cat << 'EOF' > "$HOME/.local/bin/victoria-test"
 exec "$HOME/.local/bin/victoria" --test-voice "$@"
 EOF
 chmod +x "$HOME/.local/bin/victoria-test"
-echo "✅ Enrollment & Test CLI installed: victoria-enroll, victoria-test"
+
+cat << 'EOF' > "$HOME/.local/bin/victoria-hud"
+#!/bin/bash
+exec "$HOME/.local/bin/victoria" --mode hud "$@"
+EOF
+chmod +x "$HOME/.local/bin/victoria-hud"
+echo "✅ Helper CLIs installed: victoria-enroll, victoria-test, victoria-hud"
 
 # 3. Install Desktop Application Launcher with Holographic Icon
-cp "$PROJECT_DIR/scripts/victoria.desktop" "$HOME/.local/share/applications/victoria.desktop"
+sed -e "s|{{PROJECT_DIR}}|$PROJECT_DIR|g" \
+    -e "s|{{HOME}}|$HOME|g" \
+    "$PROJECT_DIR/scripts/victoria.desktop" > "$HOME/.local/share/applications/victoria.desktop"
+chmod +x "$HOME/.local/share/applications/victoria.desktop"
 update-desktop-database "$HOME/.local/share/applications/" 2>/dev/null || true
 echo "✅ Desktop Application installed in GNOME Dash / App Launcher"
 

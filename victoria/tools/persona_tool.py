@@ -18,7 +18,7 @@ def view_owner_persona() -> str:
     goals = engine.profile.get("intentions_and_goals", {})
 
     report = (
-        f"🧬 [मालिक की डिजिटल हमशक्ल प्रोफ़ाइल]\n"
+        f"🧬 [हरिओम जी की डिजिटल हमशक्ल प्रोफ़ाइल]\n"
         f"• कुल संवाद: {identity.get('interaction_count', 0)}\n"
         f"• मुख्य पसंद: {', '.join(prefs.get('likes', [])[:5])}\n"
         f"• मुख्य नापसंद: {', '.join(prefs.get('dislikes', [])[:4])}\n"
@@ -51,7 +51,7 @@ def get_owner_intentions() -> str:
     missions = goals.get("current_missions", [])
     visions = goals.get("long_term_intentions", [])
 
-    lines = ["🎯 [मालिक के सक्रिय मिशन व इरादे]:"]
+    lines = ["🎯 [हरिओम जी के सक्रिय मिशन व इरादे]:"]
     for i, m in enumerate(missions, 1):
         lines.append(f"{i}. {m}")
     if visions:

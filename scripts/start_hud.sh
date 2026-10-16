@@ -4,7 +4,15 @@
 # Launches the interactive web dashboard on http://localhost:7860
 # ============================================================
 
-PROJECT_DIR="/run/media/hariom/DATA_SAFE/PROJECT VICTORIA"
+# Dynamically resolve project directory
+TARGET_FILE="${BASH_SOURCE[0]}"
+while [ -L "$TARGET_FILE" ]; do
+    TARGET_DIR="$(cd -P "$(dirname "$TARGET_FILE")" >/dev/null 2>&1 && pwd)"
+    TARGET_FILE="$(readlink "$TARGET_FILE")"
+    [[ $TARGET_FILE != /* ]] && TARGET_FILE="$TARGET_DIR/$TARGET_FILE"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$TARGET_FILE")" >/dev/null 2>&1 && pwd)"
+PROJECT_DIR="$(cd -P "$SCRIPT_DIR/.." >/dev/null 2>&1 && pwd)"
 cd "$PROJECT_DIR" || exit 1
 
 export DISPLAY="${DISPLAY:-:0}"

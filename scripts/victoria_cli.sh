@@ -8,7 +8,15 @@
 #   victoria --rea <target> (deep reverse engineer any app/url/db/device)
 # ============================================================
 
-PROJECT_DIR="/run/media/hariom/DATA_SAFE/PROJECT VICTORIA"
+# Dynamically resolve project directory (even if invoked via symlink like ~/.local/bin/victoria)
+TARGET_FILE="${BASH_SOURCE[0]}"
+while [ -L "$TARGET_FILE" ]; do
+    TARGET_DIR="$(cd -P "$(dirname "$TARGET_FILE")" >/dev/null 2>&1 && pwd)"
+    TARGET_FILE="$(readlink "$TARGET_FILE")"
+    [[ $TARGET_FILE != /* ]] && TARGET_FILE="$TARGET_DIR/$TARGET_FILE"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$TARGET_FILE")" >/dev/null 2>&1 && pwd)"
+PROJECT_DIR="$(cd -P "$SCRIPT_DIR/.." >/dev/null 2>&1 && pwd)"
 cd "$PROJECT_DIR" || exit 1
 
 export DISPLAY="${DISPLAY:-:0}"
@@ -21,6 +29,11 @@ export PYTHONUNBUFFERED=1
 # Ensure microphone capture volume is at optimal sensitivity (65%)
 amixer set Capture 65% unmute >/dev/null 2>&1 || true
 
-PYTHON_BIN="$PROJECT_DIR/.venv/bin/python3"
+# Use .venv python if available, else system python3
+if [ -f "$PROJECT_DIR/.venv/bin/python3" ]; then
+    PYTHON_BIN="$PROJECT_DIR/.venv/bin/python3"
+else
+    PYTHON_BIN="$(which python3)"
+fi
 
 exec "$PYTHON_BIN" -m victoria "$@"

@@ -126,18 +126,16 @@ class GeminiProvider(BaseProvider):
                 parts = [types.Part.from_text(text=msg.content)] if msg.content else []
                 if msg.tool_calls:
                     for tc in msg.tool_calls:
-                        parts.append(types.Part.from_function_call(
-                            name=tc.name,
-                            args=tc.arguments,
-                        ))
+                        # Reconstructing raw from_function_call without thought_signature throws 400 INVALID_ARGUMENT
+                        # in Gemini 2.0/3.0. Passing tool executions as descriptive context retains memory cleanly:
+                        parts.append(types.Part.from_text(text=f"[Executed Action: {tc.name} with {tc.arguments}]"))
+                if not parts:
+                    parts = [types.Part.from_text(text="...")]
                 contents.append(types.Content(role="model", parts=parts))
             elif msg.role == "tool":
                 contents.append(types.Content(
                     role="user",
-                    parts=[types.Part.from_function_response(
-                        name=msg.name or "unknown",
-                        response={"result": msg.content},
-                    )],
+                    parts=[types.Part.from_text(text=f"[Action Result for {msg.name or 'tool'}: {msg.content}]")],
                 ))
 
         return contents
@@ -153,7 +151,7 @@ class GeminiProvider(BaseProvider):
 
         client = self._get_client()
 
-        # Build config
+        # Build config (avoid thinking_budget=0 which causes 400 on flash-lite / flash-latest)
         gen_config = types.GenerateContentConfig(
             temperature=self.temperature,
             max_output_tokens=self.max_tokens,
@@ -171,8 +169,8 @@ class GeminiProvider(BaseProvider):
         try:
             # Map legacy/hallucinated model names to valid Google GenAI models
             actual_model = self.model_name
-            if actual_model in ["gemini", "gemini-2.5-flash"]:
-                actual_model = "gemini-3.8-flash"
+            if actual_model in ["gemini", "gemini-2.5-flash", "gemini-3.8-flash"]:
+                actual_model = "gemini-3.5-flash-lite"
             elif actual_model in ["gemini_pro", "gemini-2.5-pro"]:
                 actual_model = "gemini-3.1-pro-preview"
 
@@ -184,15 +182,15 @@ class GeminiProvider(BaseProvider):
                 )
             except Exception as initial_err:
                 err_str = str(initial_err).lower()
-                # If model is not found, fallback to gemini-2.0-flash or gemini-1.5-flash
-                if any(x in err_str for x in ["not_found", "not found", "404", "invalid_argument"]):
-                    fallbacks = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-3.5-flash-lite"]
+                # If model is unavailable, rate-limited or not found, fallback to next reliable Gemini model
+                if any(x in err_str for x in ["not_found", "not found", "404", "invalid_argument", "503", "unavailable", "resource_exhausted", "429", "high demand"]):
+                    fallbacks = ["gemini-3.5-flash-lite", "gemini-flash-latest", "gemini-3.8-flash", "gemini-3.1-pro-preview"]
                     recovered = False
                     for fb in fallbacks:
                         if fb == actual_model:
                             continue
                         try:
-                            console.print(f"[yellow]⚠️ Model '{actual_model}' failed. Retrying with '{fb}'...[/yellow]")
+                            console.print(f"[yellow]⚠️ Model '{actual_model}' failed ({initial_err}). Retrying with '{fb}'...[/yellow]")
                             response = client.models.generate_content(
                                 model=fb,
                                 contents=contents,
@@ -242,7 +240,7 @@ class GeminiProvider(BaseProvider):
         except Exception as e:
             console.print(f"[red]❌ Gemini API error: {e}[/red]")
             return BrainResponse(
-                text=f"माफ़ कीजिए मालिक, Gemini से जुड़ने में त्रुटि आई: {str(e)}",
+                text=f"API error: {str(e)} (Gemini connection error: {str(e)})",
                 model_used=self.model_name,
             )
 

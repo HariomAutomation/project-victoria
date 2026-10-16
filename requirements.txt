@@ -28,7 +28,14 @@ httpx>=0.27
 # --- Linux System Tools & Automation ---
 psutil>=5.9
 pillow>=10.0
+opencv-python-headless>=4.8.0
 playwright>=1.40
+duckduckgo_search>=8.0
+ddgs>=9.0
+beautifulsoup4>=4.12
+pyautogui>=0.9.54
+python3-Xlib>=0.15
+mss>=9.0.0
 
 # --- Optional Extras (System / Platform Dependent) ---
 # Install as needed; Victoria degrades gracefully if these are absent.

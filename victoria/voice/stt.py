@@ -1,9 +1,7 @@
-"""
-Victoria - Speech-to-Text Engine
-Converts recorded audio to text using faster-whisper (local, fast, accurate).
-Supports auto language detection (Hindi, English, and more).
-"""
-
+import io
+import wave
+import json
+import urllib.request
 import numpy as np
 from typing import Optional, Tuple
 from rich.console import Console
@@ -15,8 +13,8 @@ console = Console()
 
 class SpeechToText:
     """
-    Speech-to-Text engine using faster-whisper.
-    Supports multiple model sizes for speed/accuracy tradeoff.
+    Speech-to-Text engine using Sarvam AI Saaras:v3 (Primary) and faster-whisper (Offline Fallback).
+    Supports auto language detection (Hindi, English, Hinglish).
     """
 
     def __init__(self):
@@ -24,12 +22,69 @@ class SpeechToText:
         stt_cfg = cfg.stt_config
 
         self.model_size: str = stt_cfg.get("model_size", "base")
-        self.language: Optional[str] = stt_cfg.get("language", None)
+        self.language: Optional[str] = stt_cfg.get("language", "hi")
+        if self.language and self.language.lower() in ["hi-in", "hi_in", "hindi"]:
+            self.language = "hi"
         self.device: str = stt_cfg.get("device", "cpu")
         self.compute_type: str = stt_cfg.get("compute_type", "int8")
         self.sample_rate: int = cfg.audio_config.get("sample_rate", 16000)
 
         self._model = None
+
+    def _transcribe_sarvam(self, audio: np.ndarray) -> Optional[Tuple[str, str, float]]:
+        """
+        High-fidelity Indian Speech-to-Text via Sarvam AI Saaras:v3 model.
+        Flawless Devanagari and Hinglish recognition.
+        """
+        try:
+            cfg = get_config()
+            key = cfg.get_api_key("SARVAM_API_KEY")
+            if not key:
+                return None
+
+            # Convert normalized float32 audio to 16-bit PCM WAV in memory
+            int16_samples = (np.clip(audio, -1.0, 1.0) * 32767).astype(np.int16)
+            wav_buf = io.BytesIO()
+            with wave.open(wav_buf, "wb") as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(self.sample_rate)
+                wf.writeframes(int16_samples.tobytes())
+            wav_bytes = wav_buf.getvalue()
+
+            boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW"
+            body = (
+                f"--{boundary}\r\n"
+                f'Content-Disposition: form-data; name="file"; filename="voice.wav"\r\n'
+                f"Content-Type: audio/wav\r\n\r\n"
+            ).encode("utf-8") + wav_bytes + (
+                f"\r\n--{boundary}\r\n"
+                f'Content-Disposition: form-data; name="model"\r\n\r\n'
+                f"saaras:v3\r\n"
+                f"--{boundary}\r\n"
+                f'Content-Disposition: form-data; name="language_code"\r\n\r\n'
+                f"hi-IN\r\n"
+                f"--{boundary}--\r\n"
+            ).encode("utf-8")
+
+            req = urllib.request.Request(
+                "https://api.sarvam.ai/speech-to-text",
+                data=body,
+                headers={
+                    "api-subscription-key": key,
+                    "Content-Type": f"multipart/form-data; boundary={boundary}"
+                }
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                transcript = data.get("transcript", "").strip()
+                lang = data.get("language_code", "hi-IN")
+                prob = float(data.get("language_probability", 0.95))
+                if transcript and len(transcript) >= 1:
+                    return transcript, lang, prob
+        except Exception as e:
+            console.print(f"[dim]Sarvam STT notice: {e}[/dim]")
+        return None
 
     def _load_model(self):
         """Lazy-load the Whisper model."""
@@ -54,28 +109,43 @@ class SpeechToText:
         Returns:
             Tuple of (transcribed_text, detected_language, confidence)
         """
-        self._load_model()
-
-        segments, info = self._model.transcribe(
-            audio,
-            language=self.language,
-            beam_size=5,
-            best_of=3,
-            without_timestamps=True,
-            vad_filter=True,
-            vad_parameters=dict(
-                min_silence_duration_ms=500,
-                speech_pad_ms=200,
-            ),
-        )
-
         if audio is None or len(audio) == 0:
             return "", "unknown", 0.0
 
-        rms = float(np.sqrt(np.mean(audio ** 2)))
-        if rms < 0.005:
+        peak = float(np.max(np.abs(audio)))
+        if peak < 0.0008:
             console.print("[dim]📝 STT: Audio below noise floor, skipped.[/dim]")
             return "", "unknown", 0.0
+
+        # Automatic Gain Control: Normalize quiet mic signals up to studio level (~0.7)
+        normalized_audio = (audio / peak) * 0.7
+
+        # Tier 1: Try Sarvam AI Saaras:v3 for crystal-clear Hindi/Hinglish
+        sarvam_res = self._transcribe_sarvam(normalized_audio)
+        if sarvam_res and sarvam_res[0]:
+            full_text, detected_lang, confidence = sarvam_res
+            console.print(f'[cyan]📝 STT (Sarvam Saaras): "{full_text}" [{detected_lang}, conf: {confidence:.2f}][/cyan]')
+            return full_text, detected_lang, confidence
+
+        # Tier 2: Offline Faster-Whisper Fallback
+        self._load_model()
+
+        segments, info = self._model.transcribe(
+            normalized_audio,
+            language=self.language,
+            initial_prompt="नमस्ते हरिओम, बातचीत हिंदी और English में हो रही है।",
+            beam_size=5,
+            best_of=3,
+            temperature=0.0,
+            condition_on_previous_text=False,
+            repetition_penalty=1.2,
+            without_timestamps=True,
+            vad_filter=True,
+            vad_parameters=dict(
+                min_silence_duration_ms=400,
+                speech_pad_ms=200,
+            ),
+        )
 
         # Collect all segments
         texts = []

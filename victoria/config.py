@@ -58,6 +58,28 @@ class VictoriaConfig:
                 return default
         return value
 
+    def set(self, dotted_key: str, value: Any, persist: bool = True):
+        """
+        Set a configuration value using dot notation and optionally persist to yaml.
+        Example: config.set("voice.wake_word.sensitivity", 0.6)
+        """
+        keys = dotted_key.split(".")
+        current = self._raw
+        for key in keys[:-1]:
+            if key not in current or not isinstance(current[key], dict):
+                current[key] = {}
+            current = current[key]
+        current[keys[-1]] = value
+
+        if persist:
+            try:
+                import yaml
+                with open(self.config_path, "w", encoding="utf-8") as f:
+                    yaml.dump(self._raw, f, default_flow_style=False, sort_keys=False)
+                console.print(f"[green]💾 Persisted setting '{dotted_key}' = {value} to {self.config_path.name}[/green]")
+            except Exception as e:
+                console.print(f"[yellow]⚠️ Could not persist to {self.config_path}: {e}[/yellow]")
+
     def load_dotenv(self):
         """Load environment variables from PROJECT_ROOT / .env if present."""
         env_file = PROJECT_ROOT / ".env"
@@ -121,7 +143,6 @@ class VictoriaConfig:
         provider_map = {
             "gemini": "GEMINI_API_KEY",
             "openrouter": "OPENROUTER_API_KEY",
-            "opencode": "OPENROUTER_API_KEY",
             "openai": "OPENAI_API_KEY",
             "groq": "GROQ_API_KEY",
             "sarvam": "SARVAM_API_KEY",
@@ -130,13 +151,11 @@ class VictoriaConfig:
         clean_key = api_key.strip().strip("'\"")
         self.save_env_variable(var_name, clean_key)
 
-    def get_api_key(self, env_var_name: str) -> Optional[str]:
+    def get_api_key(self, env_var_name: str, quiet: bool = True) -> Optional[str]:
         """Get API key from environment variable, reloading .env if needed."""
+        self.load_dotenv()
         key = os.environ.get(env_var_name)
-        if not key:
-            self.load_dotenv()
-            key = os.environ.get(env_var_name)
-        if not key:
+        if not key and not quiet:
             console.print(f"[yellow]⚠️  API key not found in env: {env_var_name}[/yellow]")
         return key
 
@@ -156,26 +175,37 @@ class VictoriaConfig:
         if "api_key_env" in model_cfg:
             model_cfg["api_key"] = self.get_api_key(model_cfg["api_key_env"])
 
-        # Dynamic override for OpenRouter / OpenCode if custom model is selected
-        if model_name in ["openrouter", "opencode"] or ("openrouter" in model_cfg.get("base_url", "").lower()):
+        # Dynamic override for OpenRouter if custom model is selected
+        if model_name == "openrouter" or ("openrouter" in model_cfg.get("base_url", "").lower()):
             custom_model = os.environ.get("OPENROUTER_CUSTOM_MODEL")
+            if custom_model:
+                model_cfg["model"] = custom_model
+        elif model_name == "opencode":
+            custom_model = os.environ.get("OPENCODE_CUSTOM_MODEL")
             if custom_model:
                 model_cfg["model"] = custom_model
 
         return model_cfg
 
     def set_openrouter_model(self, model_id: str):
-        """Set and persist active model ID for OpenRouter / OpenCode."""
+        """Set and persist active model ID for OpenRouter."""
         self.save_env_variable("OPENROUTER_CUSTOM_MODEL", model_id)
         if "brain" in self._raw and "models" in self._raw["brain"]:
             if "openrouter" in self._raw["brain"]["models"]:
                 self._raw["brain"]["models"]["openrouter"]["model"] = model_id
+        console.print(f"[green]🌐 OpenRouter model set to: {model_id}[/green]")
+
+    def set_opencode_model(self, model_id: str):
+        """Set and persist active model ID for OpenCode."""
+        self.save_env_variable("OPENCODE_CUSTOM_MODEL", model_id)
+        if "brain" in self._raw and "models" in self._raw["brain"]:
             if "opencode" in self._raw["brain"]["models"]:
                 self._raw["brain"]["models"]["opencode"]["model"] = model_id
-        console.print(f"[green]🌐 OpenRouter model set to: {model_id}[/green]")
+        console.print(f"[green]🚀 OpenCode model set to: {model_id}[/green]")
 
     def get_active_model_name(self) -> str:
         """Get the name of the currently active model."""
+        self.load_dotenv()
         env_active = os.environ.get("VICTORIA_ACTIVE_MODEL")
         if env_active:
             return env_active
@@ -204,6 +234,7 @@ class VictoriaConfig:
 
     def get_models_status(self) -> dict:
         """Return status of all models, API keys, and active selection."""
+        self.load_dotenv()
         def mask_key(k: Optional[str]) -> Optional[str]:
             if not k:
                 return None
@@ -219,9 +250,9 @@ class VictoriaConfig:
         for name, cfg in models_dict.items():
             env_var = cfg.get("api_key_env")
             raw_key = os.environ.get(env_var) if env_var else None
-            # Ollama models don't require an API key
-            is_ollama = cfg.get("provider") == "ollama"
-            has_key = is_ollama or bool(raw_key)
+            # Ollama & OpenCode models don't require an API key
+            is_no_key = cfg.get("provider") in ("ollama", "opencode")
+            has_key = is_no_key or bool(raw_key)
 
             model_list.append({
                 "id": name,
@@ -229,7 +260,7 @@ class VictoriaConfig:
                 "model_name": cfg.get("model"),
                 "api_key_env": env_var,
                 "has_key": has_key,
-                "masked_key": mask_key(raw_key),
+                "masked_key": mask_key(raw_key) if not is_no_key else "Free Local Engine",
                 "base_url": cfg.get("base_url"),
                 "is_active": name == active,
             })
@@ -243,8 +274,16 @@ class VictoriaConfig:
                 "recommended": True,
                 "doc_url": "https://aistudio.google.com/app/apikey",
             },
+            "opencode": {
+                "name": "OpenCode (Free Local Engine)",
+                "env_var": None,
+                "has_key": True,
+                "masked_key": "Active Local Engine",
+                "recommended": True,
+                "doc_url": "https://opencode.ai",
+            },
             "openrouter": {
-                "name": "OpenRouter / OpenCode",
+                "name": "OpenRouter (Cloud Router)",
                 "env_var": "OPENROUTER_API_KEY",
                 "has_key": bool(os.environ.get("OPENROUTER_API_KEY")),
                 "masked_key": mask_key(os.environ.get("OPENROUTER_API_KEY")),
