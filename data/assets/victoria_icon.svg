@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="cyberGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00f0ff" stop-opacity="1"/>
+      <stop offset="60%" stop-color="#a855f7" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#070913" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="vGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f0ff"/>
+      <stop offset="50%" stop-color="#a855f7"/>
+      <stop offset="100%" stop-color="#00ff88"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="100" fill="#070913"/>
+  <circle cx="256" cy="256" r="220" fill="url(#cyberGlow)" opacity="0.4"/>
+
+  <!-- Orbital Cyber Rings -->
+  <circle cx="256" cy="256" r="190" stroke="#00f0ff" stroke-width="3" stroke-dasharray="15 25" fill="none" opacity="0.6"/>
+  <circle cx="256" cy="256" r="160" stroke="#a855f7" stroke-width="2" stroke-dasharray="8 12" fill="none" opacity="0.7"/>
+
+  <!-- Futuristic Holographic V Emblem -->
+  <path d="M 140 140 L 256 390 L 372 140 L 310 140 L 256 280 L 202 140 Z" fill="url(#vGrad)"/>
+  
+  <!-- Neural Core Nodes -->
+  <circle cx="256" cy="390" r="12" fill="#00ff88"/>
+  <circle cx="140" cy="140" r="10" fill="#00f0ff"/>
+  <circle cx="372" cy="140" r="10" fill="#a855f7"/>
+  <circle cx="256" cy="256" r="8" fill="#ffffff"/>
+</svg>

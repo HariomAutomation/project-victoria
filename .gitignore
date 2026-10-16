@@ -1,0 +1,50 @@
+# ============================================================
+# Project Victoria - Git Ignore Rules
+# ============================================================
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Python cache & build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+
+# Environment Variables & Secrets (CRITICAL)
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# IDE & Editor Settings
+.cursor/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Runtime Data, Logs & Databases
+data/logs/*
+!data/logs/.gitkeep
+data/audio_cache/*
+!data/audio_cache/.gitkeep
+data/voice_samples/*
+!data/voice_samples/.gitkeep
+data/teardowns/*
+!data/teardowns/.gitkeep
+data/memory/*.db
+data/memory/*.db-shm
+data/memory/*.db-wal
+
+# Private Biometric Voice Profiles
+config/voice_profiles/*.npy
+!config/voice_profiles/.gitkeep

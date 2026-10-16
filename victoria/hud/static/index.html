@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VICTORIA // AI Neural Operating Deck & REA Core</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@500;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/hud.css?v=2.1">
+    <!-- Three.js for 3D Holographic Brain -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body class="cyber-theme">
+    <!-- Holographic grid & ambient backdrop -->
+    <div class="hologram-backdrop"></div>
+    <div class="scanlines"></div>
+
+    <!-- Top Navigation Bar -->
+    <header class="hud-header glass-panel">
+        <div class="brand">
+            <div class="status-indicator live-pulse"></div>
+            <h1 class="logo-title">VICTORIA <span class="logo-badge">OS // v2.0</span></h1>
+            <span class="system-tag">REA ENGINE &bull; HINDI CORE ACTIVE</span>
+        </div>
+        <div class="header-telemetry">
+            <div class="telemetry-chip">
+                <span class="chip-label">BRAIN</span>
+                <span class="chip-val cyan" id="activeModelVal">GEMINI</span>
+            </div>
+            <div class="telemetry-chip">
+                <span class="chip-label">TOOLS</span>
+                <span class="chip-val green" id="toolsCountVal">36 LOADED</span>
+            </div>
+            <div class="telemetry-chip">
+                <span class="chip-label">STATUS</span>
+                <span class="chip-val purple" id="voiceStatusVal">LISTENING</span>
+            </div>
+        </div>
+        <div class="quick-controls">
+            <button class="action-btn connect-ai-btn" id="connectAiBtn" title="Connect AI Brain & API Keys">
+                <span class="status-dot dot-warn" id="aiStatusDot"></span>
+                <span>⚡ Connect AI</span>
+            </button>
+            <button class="action-btn" id="personaBtn" title="View Digital Twin Profile">🧬 Persona</button>
+            <button class="action-btn" id="screenshotBtn" title="Take Screenshot">📸 Screen</button>
+            <button class="action-btn" id="volDownBtn" title="Volume Down">🔉 Vol -</button>
+            <button class="action-btn" id="volUpBtn" title="Volume Up">🔊 Vol +</button>
+            <select id="modelSelector" class="cyber-select">
+                <option value="gemini">Gemini 2.5 Flash</option>
+                <option value="gemini_pro">Gemini 2.5 Pro</option>
+                <option value="openrouter">OpenRouter LLaMA 3.3 (Free)</option>
+                <option value="opencode">OpenCode Qwen 2.5 Coder</option>
+                <option value="groq">Groq Cloud (Fast)</option>
+                <option value="openai_gpt4o">OpenAI GPT-4o Mini</option>
+                <option value="sarvam">Sarvam AI (Indic)</option>
+                <option value="local_fast">Ollama Fast (Local)</option>
+                <option value="local_coder">Qwen Coder (Local)</option>
+            </select>
+        </div>
+    </header>
+
+    <!-- Main Workspace Grid -->
+    <main class="hud-grid">
+        <!-- Left: 3D Hologram Core & Telemetry -->
+        <section class="panel-column left-deck">
+            <div class="glass-panel core-viewport">
+                <div class="panel-header">
+                    <span class="panel-title">NEURAL CORE // 3D HOLOGRAPH</span>
+                    <span class="state-badge" id="neuralState">IDLE</span>
+                </div>
+                <!-- Three.js Canvas Container -->
+                <div id="threeBrainContainer" class="three-container"></div>
+                <!-- Audio Waveform Visualizer -->
+                <div class="waveform-container">
+                    <div class="wave-label">AUDIO FREQUENCY STREAM</div>
+                    <canvas id="waveformCanvas" width="400" height="60"></canvas>
+                </div>
+            </div>
+
+            <!-- Hardware Telemetry Gauges -->
+            <div class="glass-panel telemetry-gauges">
+                <div class="panel-header">
+                    <span class="panel-title">HARDWARE TELEMETRY</span>
+                </div>
+                <div class="gauges-grid">
+                    <div class="gauge-card">
+                        <div class="gauge-header"><span>CPU LOAD</span><span id="cpuPercent">0%</span></div>
+                        <div class="progress-bar"><div class="fill cyan-fill" id="cpuBar" style="width: 0%"></div></div>
+                    </div>
+                    <div class="gauge-card">
+                        <div class="gauge-header"><span>MEMORY</span><span id="ramPercent">0%</span></div>
+                        <div class="progress-bar"><div class="fill purple-fill" id="ramBar" style="width: 0%"></div></div>
+                    </div>
+                    <div class="gauge-card">
+                        <div class="gauge-header"><span>STORAGE</span><span id="diskPercent">0%</span></div>
+                        <div class="progress-bar"><div class="fill green-fill" id="diskBar" style="width: 0%"></div></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Center: Interactive Hindi/English AI Console -->
+        <section class="panel-column center-deck">
+            <div class="glass-panel chat-console">
+                <div class="panel-header">
+                    <div class="flex-center gap-2">
+                        <span class="panel-title">INTERACTIVE VOICE & TEXT TERMINAL</span>
+                        <span class="lang-badge">HINDI / ENGLISH AUTO</span>
+                    </div>
+                    <button class="clear-btn" id="clearChatBtn">Clear Log</button>
+                </div>
+
+                <div class="chat-messages" id="chatMessages">
+                    <div class="msg assistant-msg">
+                        <div class="msg-avatar">V</div>
+                        <div class="msg-body">
+                            <div class="msg-sender">Victoria</div>
+                            <div class="msg-text">नमस्ते मालिक! मैं विक्टोरिया हूँ। आपका सिस्टम, REA रिवर्स इंजीनियरिंग इंजन, और लीनटोकन पूरी तरह से तैयार हैं। आप मुझे कोई भी आदेश दे सकते हैं या बोल सकते हैं!</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Input Form -->
+                <form class="chat-input-bar" id="chatForm">
+                    <button type="button" class="mic-toggle-btn" id="micBtn" title="Speak to Victoria">
+                        <span class="mic-icon">🎙️</span>
+                    </button>
+                    <input type="text" id="chatInput" placeholder="विक्टोरिया को आदेश दें (e.g. 'reverse engineer https://github.com' या 'वॉल्यूम बढ़ाओ')..." autocomplete="off">
+                    <button type="submit" class="send-btn" id="sendBtn">
+                        <span>TRANSMIT</span>
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- Right: REA (Reverse Engineer Anything) Control Center -->
+        <section class="panel-column right-deck">
+            <div class="glass-panel rea-deck">
+                <div class="panel-header">
+                    <span class="panel-title">REA // REVERSE ENGINEER ANYTHING</span>
+                    <span class="rea-badge">morluto/rea</span>
+                </div>
+                
+                <form class="rea-form" id="reaForm">
+                    <div class="input-group">
+                        <input type="text" id="reaTargetInput" placeholder="Enter target (URL, app binary, .db, IP, or 'usb')..." required>
+                        <select id="reaTypeSelect" class="cyber-select">
+                            <option value="auto">Auto-Detect</option>
+                            <option value="website">Website / API</option>
+                            <option value="app">Desktop App / Binary</option>
+                            <option value="database">Database (SQLite/Postgres)</option>
+                            <option value="device">Device / Network</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="cyber-action-btn" id="runReaBtn">
+                        <span>⚡ DEEP TEARDOWN & RECONSTRUCT</span>
+                    </button>
+                </form>
+
+                <div class="rea-output-zone">
+                    <div class="tabs-header">
+                        <button class="tab-btn active" data-tab="reports">Teardown Reports</button>
+                        <button class="tab-btn" data-tab="preview">Live Blueprint</button>
+                        <button class="tab-btn" data-tab="persona">🧬 Digital Twin</button>
+                        <button class="tab-btn" data-tab="memory">🧠 Memory Vault</button>
+                        <button class="tab-btn" data-tab="experience">📈 सीख &amp; अनुभव</button>
+                    </div>
+
+                    <div class="tab-content" id="reportsTab">
+                        <div class="reports-list" id="reportsList">
+                            <div class="empty-state">Loading recent teardown archives...</div>
+                        </div>
+                    </div>
+
+                    <div class="tab-content hidden" id="previewTab">
+                        <div class="code-preview" id="codePreview">
+                            <pre><code id="blueprintCode">// Select a report to view recovered code / schemas</code></pre>
+                        </div>
+                    </div>
+
+                    <div class="tab-content hidden" id="personaTab">
+                        <div class="code-preview" id="personaPreview">
+                            <pre><code id="personaContent">// Loading Owner Persona Dossier...</code></pre>
+                        </div>
+                    </div>
+
+                    <div class="tab-content hidden" id="memoryTab">
+                        <div class="memory-search-bar" style="margin-bottom: 10px; display: flex; gap: 8px;">
+                            <input type="text" id="memorySearchInput" placeholder="लोकल ऑफ़लाइन मेमोरी खोजें (FTS Search)..." style="flex:1; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); border-radius:6px; padding:6px 12px; color:#fff; font-size:0.8rem;">
+                            <button id="memorySearchBtn" class="action-btn" style="padding:6px 12px; font-size:0.75rem;">🔍 Search</button>
+                        </div>
+                        <div class="reports-list" id="memoriesList">
+                            <div class="empty-state">Loading offline memories from local SQLite...</div>
+                        </div>
+                    </div>
+
+                    <div class="tab-content hidden" id="experienceTab">
+                        <!-- Evolution Score Header -->
+                        <div class="experience-header-card" style="background: rgba(0,240,255,0.06); border: 1px solid rgba(0,240,255,0.2); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <div style="font-size:0.65rem; color:var(--text-muted); font-family:var(--font-heading);">VICTORIA EVOLUTION LEVEL</div>
+                                    <div style="font-size:1rem; font-weight:700; color:var(--neon-green);" id="evolutionRankTitle">Level 1: सतर्क शिक्षार्थी</div>
+                                </div>
+                                <div style="text-align:right;">
+                                    <span class="badge badge-success" id="evolutionScoreBadge">Score: 100 XP</span>
+                                </div>
+                            </div>
+                            <div style="margin-top: 8px; font-size:0.75rem; color:var(--text-secondary);" id="evolutionSummary">
+                                विक्टोरिया हर पूरे किए गए टास्क और आपके सुधारों से सीखकर लगातार बेहतर हो रही है।
+                            </div>
+                        </div>
+
+                        <!-- Manual Teach Rule Input -->
+                        <div class="teach-rule-box" style="margin-bottom: 12px; display:flex; gap:6px;">
+                            <input type="text" id="newRuleInput" placeholder="नया नियम सिखाएं (उदा: 'स्क्रीनशॉट हमेशा Pictures में सहेजें')..." style="flex:1; background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.15); border-radius:6px; padding:6px 10px; color:#fff; font-size:0.75rem;">
+                            <button id="saveRuleBtn" class="action-btn" style="padding:6px 10px; font-size:0.75rem; white-space:nowrap;">💡 सिखाएं</button>
+                        </div>
+
+                        <!-- Sub-sections: Learned Rules & Mastered Recipes -->
+                        <div style="font-size:0.75rem; font-family:var(--font-heading); color:var(--neon-cyan); margin-bottom:6px;">
+                            🛡️ सीखे गए नियम व सुधार (Learned Rules):
+                        </div>
+                        <div class="reports-list" id="learnedRulesList" style="max-height: 140px; margin-bottom: 12px;">
+                            <div class="empty-state">Loading learned rules...</div>
+                        </div>
+
+                        <div style="font-size:0.75rem; font-family:var(--font-heading); color:var(--neon-purple); margin-bottom:6px;">
+                            ⚡ सिद्ध सफल वर्कफ़्लो (Mastered Task Recipes):
+                        </div>
+                        <div class="reports-list" id="masteredRecipesList" style="max-height: 140px;">
+                            <div class="empty-state">Loading mastered workflows...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- AI Brain & Model Connection Modal -->
+    <div class="hud-modal-overlay hidden" id="brainModal">
+        <div class="hud-modal glass-panel">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <span class="status-indicator live-pulse"></span>
+                    <h2 class="modal-title">AI NEURAL BRAIN &amp; API CONNECTIONS</h2>
+                </div>
+                <button class="modal-close-btn" id="closeBrainModalBtn" title="Close">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <!-- Active Model Status Banner -->
+                <div class="brain-status-banner">
+                    <div class="banner-info">
+                        <span class="banner-label">ACTIVE BRAIN ENGINE:</span>
+                        <span class="banner-value" id="currentActiveEngine">GEMINI 2.5 FLASH</span>
+                    </div>
+                    <span class="badge badge-warn" id="currentEngineStatus">● CHECKING STATUS</span>
+                </div>
+
+                <!-- Provider Tabs -->
+                <div class="brain-tabs">
+                    <button class="brain-tab-btn active" data-provider="gemini">
+                        <span class="tab-icon">🌟</span> Google Gemini
+                    </button>
+                    <button class="brain-tab-btn" data-provider="openrouter">
+                        <span class="tab-icon">🌐</span> OpenRouter / OpenCode
+                    </button>
+                    <button class="brain-tab-btn" data-provider="groq">
+                        <span class="tab-icon">⚡</span> Groq Cloud
+                    </button>
+                    <button class="brain-tab-btn" data-provider="openai">
+                        <span class="tab-icon">🤖</span> OpenAI
+                    </button>
+                    <button class="brain-tab-btn" data-provider="ollama">
+                        <span class="tab-icon">💻</span> Ollama (Offline)
+                    </button>
+                </div>
+
+                <!-- Tab Panels -->
+                <!-- 1. Gemini -->
+                <div class="provider-panel" id="panel-gemini">
+                    <div class="provider-header">
+                        <div class="provider-info">
+                            <h3>Google Gemini 2.5 (Recommended)</h3>
+                            <p class="provider-desc">Best for Victoria: High-speed, natural Hindi/English voice chat, native tool calling, and free tier.</p>
+                        </div>
+                        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="cyber-link">Free API Key ↗</a>
+                    </div>
+                    <div class="form-group">
+                        <label for="geminiApiKeyInput">Gemini API Key (GEMINI_API_KEY)</label>
+                        <div class="input-password-wrapper">
+                            <input type="password" id="geminiApiKeyInput" placeholder="Paste your AIzaSy... key here" autocomplete="off">
+                            <button type="button" class="toggle-pwd-btn" data-target="geminiApiKeyInput">👁️</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="geminiModelSelect">Brain Model</label>
+                        <select id="geminiModelSelect" class="cyber-select full-width">
+                            <option value="gemini">Gemini 2.0 Flash (Super Fast & Smart - Default)</option>
+                            <option value="gemini_pro">Gemini 1.5 Pro (Deep Multi-Step Reasoning)</option>
+                        </select>
+                    </div>
+                    <div class="provider-actions">
+                        <button type="button" class="cyber-action-btn connect-key-btn" data-provider="gemini">
+                            <span>⚡ Verify &amp; Connect Gemini</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 2. OpenRouter & OpenCode -->
+                <div class="provider-panel hidden" id="panel-openrouter">
+                    <div class="provider-header">
+                        <div class="provider-info">
+                            <h3>OpenRouter &amp; OpenCode</h3>
+                            <p class="provider-desc">Key दर्ज करते ही नीचे उपलब्ध सभी 100% Free AI मॉडल्स की लाइव सूची आ जाएगी। जो चाहें वह चुनें!</p>
+                        </div>
+                        <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" class="cyber-link">Get Key ↗</a>
+                    </div>
+                    <div class="form-group">
+                        <label for="openrouterApiKeyInput">OpenRouter API Key (OPENROUTER_API_KEY)</label>
+                        <div class="input-password-wrapper">
+                            <input type="password" id="openrouterApiKeyInput" placeholder="Paste your sk-or-v1-... key here" autocomplete="off">
+                            <button type="button" class="toggle-pwd-btn" data-target="openrouterApiKeyInput">👁️</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                            <label for="openrouterModelSelect" style="margin-bottom:0;">चुनें AI मॉडल (All Free Models):</label>
+                            <button type="button" id="refreshFreeModelsBtn" class="cyber-link" style="padding: 2px 6px; font-size: 0.7rem; cursor:pointer;">
+                                🔄 Refresh Free Models
+                            </button>
+                        </div>
+                        <select id="openrouterModelSelect" class="cyber-select full-width">
+                            <option value="nvidia/nemotron-3.5-lightning:free">NVIDIA: Nemotron 3.5 Lightning (Free - 1M Context)</option>
+                            <option value="cohere/north-mini-code:free">Cohere: North Mini Code (Free)</option>
+                            <option value="liquid/lfm-2.5-2.6b:free">Liquid: LFM 2.5 2.6B (Free)</option>
+                            <option value="meta-llama/llama-3.3-70b-instruct:free">Meta: LLaMA 3.3 70B Instruct (Free)</option>
+                            <option value="google/gemma-2-9b-it:free">Google: Gemma 2 9B IT (Free)</option>
+                            <option value="qwen/qwen-2.5-coder-32b-instruct:free">Qwen: 2.5 Coder 32B Instruct (Free)</option>
+                            <option value="deepseek/deepseek-r1:free">DeepSeek: R1 Reasoning (Free)</option>
+                        </select>
+                        <span id="freeModelNote" style="font-size:0.7rem; color:var(--neon-green); font-family:var(--font-mono); margin-top:4px; display:block;">
+                            ✨ लोड हो रहा है: 100% मुफ़्त AI मॉडल्स...
+                        </span>
+                    </div>
+                    <div class="provider-actions">
+                        <button type="button" class="cyber-action-btn connect-key-btn" data-provider="openrouter">
+                            <span>⚡ Verify &amp; Connect Selected Model</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 3. Groq -->
+                <div class="provider-panel hidden" id="panel-groq">
+                    <div class="provider-header">
+                        <div class="provider-info">
+                            <h3>Groq Cloud (LPU Ultra-Fast)</h3>
+                            <p class="provider-desc">Instantaneous inference speed using Groq's LPUs. Great for real-time voice latency.</p>
+                        </div>
+                        <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" class="cyber-link">Get Key ↗</a>
+                    </div>
+                    <div class="form-group">
+                        <label for="groqApiKeyInput">Groq API Key (GROQ_API_KEY)</label>
+                        <div class="input-password-wrapper">
+                            <input type="password" id="groqApiKeyInput" placeholder="Paste your gsk_... key here" autocomplete="off">
+                            <button type="button" class="toggle-pwd-btn" data-target="groqApiKeyInput">👁️</button>
+                        </div>
+                    </div>
+                    <div class="provider-actions">
+                        <button type="button" class="cyber-action-btn connect-key-btn" data-provider="groq">
+                            <span>⚡ Verify &amp; Connect Groq</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 4. OpenAI -->
+                <div class="provider-panel hidden" id="panel-openai">
+                    <div class="provider-header">
+                        <div class="provider-info">
+                            <h3>OpenAI (GPT-4o)</h3>
+                            <p class="provider-desc">Connect official OpenAI API for GPT-4o and GPT-4o-mini.</p>
+                        </div>
+                        <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" class="cyber-link">Get Key ↗</a>
+                    </div>
+                    <div class="form-group">
+                        <label for="openaiApiKeyInput">OpenAI API Key (OPENAI_API_KEY)</label>
+                        <div class="input-password-wrapper">
+                            <input type="password" id="openaiApiKeyInput" placeholder="Paste your sk-... key here" autocomplete="off">
+                            <button type="button" class="toggle-pwd-btn" data-target="openaiApiKeyInput">👁️</button>
+                        </div>
+                    </div>
+                    <div class="provider-actions">
+                        <button type="button" class="cyber-action-btn connect-key-btn" data-provider="openai">
+                            <span>⚡ Verify &amp; Connect OpenAI</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 5. Ollama -->
+                <div class="provider-panel hidden" id="panel-ollama">
+                    <div class="provider-header">
+                        <div class="provider-info">
+                            <h3>Ollama (100% Offline Local AI)</h3>
+                            <p class="provider-desc">Runs entirely on your local CPU/GPU with zero internet connection needed. No API key required.</p>
+                        </div>
+                        <a href="https://ollama.com" target="_blank" rel="noopener noreferrer" class="cyber-link">Ollama Docs ↗</a>
+                    </div>
+                    <div class="form-group">
+                        <label for="ollamaModelSelect">Local Model Selection</label>
+                        <select id="ollamaModelSelect" class="cyber-select full-width">
+                            <option value="local_fast">Gemma 2 9B (Local Fast)</option>
+                            <option value="local_coder">Qwen 2.5 Coder 14B (Local Coding)</option>
+                        </select>
+                    </div>
+                    <div class="provider-actions">
+                        <button type="button" class="cyber-action-btn" id="activateOllamaBtn">
+                            <span>⚡ Activate Local Model</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Feedback alert box -->
+                <div class="connection-status-box hidden" id="connectionStatusBox">
+                    <div class="status-spinner" id="statusSpinner"></div>
+                    <div class="status-text" id="statusText">Verifying credentials...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio Playback Element for TTS Voice -->
+    <audio id="ttsAudio" style="display:none;"></audio>
+
+    <script src="js/brain_3d.js?v=2.1"></script>
+    <script src="js/audio_wave.js?v=2.1"></script>
+    <script src="js/app.js?v=2.1"></script>
+</body>
+</html>

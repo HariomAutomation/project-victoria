@@ -1,0 +1,18 @@
+[project]
+name = "victoria"
+version = "0.1.0"
+description = "Victoria - Smart Personal AI Assistant for Linux with Voice Authentication & Pluggable AI Brain"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Hariom"},
+]
+
+[project.scripts]
+victoria = "victoria.main:main"
+victoria-enroll = "scripts.enroll_voice:main"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"

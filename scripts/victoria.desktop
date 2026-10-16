@@ -1,0 +1,24 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Victoria AI Assistant
+GenericName=Personal AI Assistant & REA Deck
+Comment=Victoria - Autonomous AI Assistant for Linux with Voice, REA & 3D Holographic HUD
+Exec=/home/hariom/.local/bin/victoria-hud
+Icon=/run/media/hariom/DATA_SAFE/PROJECT VICTORIA/data/assets/victoria_icon.svg
+Terminal=false
+Categories=Utility;Development;ArtificialIntelligence;
+StartupNotify=true
+Actions=HudMode;VoiceMode;TextMode;
+
+[Desktop Action HudMode]
+Name=Open 3D Holographic HUD
+Exec=/home/hariom/.local/bin/victoria-hud
+
+[Desktop Action VoiceMode]
+Name=Start Voice Dialogue Mode
+Exec=x-terminal-emulator -e "/home/hariom/.local/bin/victoria --mode voice"
+
+[Desktop Action TextMode]
+Name=Start Terminal Console
+Exec=x-terminal-emulator -e "/home/hariom/.local/bin/victoria --mode text"
