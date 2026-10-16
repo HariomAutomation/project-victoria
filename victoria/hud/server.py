@@ -334,6 +334,8 @@ def use_discovered_model(req: UseModelRequest):
         cfg.set_openrouter_model(model_id)
     elif provider == "opencode":
         cfg.set_opencode_model(model_id)
+    elif provider == "gemini":
+        cfg.set_gemini_model(model_id)
 
     # In-memory config is updated; dynamic selection persists via .env to preserve YAML comments
     brain_router.reload_provider(config_key)

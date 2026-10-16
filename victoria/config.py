@@ -184,6 +184,10 @@ class VictoriaConfig:
             custom_model = os.environ.get("OPENCODE_CUSTOM_MODEL")
             if custom_model:
                 model_cfg["model"] = custom_model
+        elif model_name in ("gemini", "gemini_pro"):
+            custom_model = os.environ.get("GEMINI_CUSTOM_MODEL")
+            if custom_model:
+                model_cfg["model"] = custom_model
 
         return model_cfg
 
@@ -203,6 +207,14 @@ class VictoriaConfig:
                 self._raw["brain"]["models"]["opencode"]["model"] = model_id
         console.print(f"[green]🚀 OpenCode model set to: {model_id}[/green]")
 
+    def set_gemini_model(self, model_id: str):
+        """Set and persist active model ID for Google Gemini."""
+        self.save_env_variable("GEMINI_CUSTOM_MODEL", model_id)
+        if "brain" in self._raw and "models" in self._raw["brain"]:
+            if "gemini" in self._raw["brain"]["models"]:
+                self._raw["brain"]["models"]["gemini"]["model"] = model_id
+        console.print(f"[green]✨ Gemini model set to: {model_id}[/green]")
+
     def get_active_model_name(self) -> str:
         """Get the name of the currently active model."""
         self.load_dotenv()
@@ -212,7 +224,7 @@ class VictoriaConfig:
         return self.get("brain.active_model", "gemini")
 
     def set_active_model(self, model_name: str, persist: bool = True):
-        """Switch the active AI model and optionally persist to .env and yaml."""
+        """Switch the active AI model and optionally persist to .env."""
         models = self.get("brain.models", {})
         if model_name not in models:
             raise ValueError(f"Model '{model_name}' not configured. Available: {list(models.keys())}")

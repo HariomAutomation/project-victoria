@@ -78,6 +78,18 @@ def get_system_info(info_type: str = "all") -> str:
         mins = int((uptime_seconds % 3600) // 60)
         parts.append(f"⏱️  Uptime: {hours}h {mins}m")
 
+    if info_type in ("all", "time", "date", "timezone"):
+        try:
+            import datetime
+            now = datetime.datetime.now()
+            tz_str = time.tzname[time.daylight] if hasattr(time, 'tzname') else "IST"
+            time_12h = now.strftime("%I:%M %p")
+            time_24h = now.strftime("%H:%M")
+            date_str = now.strftime("%A, %d %B %Y")
+            parts.append(f"🕒 Time & Date: {time_12h} ({time_24h}) | {date_str} | Timezone: {tz_str} (Asia/Kolkata)")
+        except Exception:
+            pass
+
     if info_type == "all":
         parts.insert(0, f"🖥️  {platform.node()} | {platform.system()} {platform.release()}")
 
