@@ -36,33 +36,74 @@ class GeminiProvider(BaseProvider):
                 raise
         return self._client
 
+    @staticmethod
+    def _json_schema_to_gemini(schema: dict):
+        """Recursively convert a JSON Schema fragment into a Gemini types.Schema."""
+        from google.genai import types
+
+        if not isinstance(schema, dict):
+            return types.Schema(type="STRING")
+
+        raw_type = schema.get("type") or "object"
+        if isinstance(raw_type, list):
+            raw_type = raw_type[0] if raw_type else "string"
+        t = str(raw_type).upper()
+        if t not in {"OBJECT", "ARRAY", "STRING", "NUMBER", "INTEGER", "BOOLEAN"}:
+            t = "STRING"
+
+        kwargs: dict = {}
+        if schema.get("description"):
+            kwargs["description"] = str(schema["description"])[:1024]
+        if schema.get("enum"):
+            kwargs["enum"] = [str(e) for e in schema["enum"]]
+
+        if t == "OBJECT":
+            props = schema.get("properties") or {}
+            if props:
+                kwargs["properties"] = {
+                    k: GeminiProvider._json_schema_to_gemini(v) for k, v in props.items()
+                }
+            if schema.get("required"):
+                kwargs["required"] = list(schema["required"])
+        elif t == "ARRAY":
+            items = schema.get("items")
+            if isinstance(items, dict):
+                kwargs["items"] = GeminiProvider._json_schema_to_gemini(items)
+
+        return types.Schema(type=t, **kwargs)
+
     def _convert_tools_to_gemini(self, tools: list[ToolDefinition]) -> list:
         """Convert our tool definitions to Gemini function declarations."""
         from google.genai import types
 
         function_declarations = []
         for tool in tools:
-            properties = {}
-            required = []
+            if getattr(tool, "raw_schema", None):
+                params_schema = self._json_schema_to_gemini(tool.raw_schema)
+            else:
+                properties = {}
+                required = []
 
-            for param in tool.parameters:
-                prop = {"type": param.type.upper(), "description": param.description}
-                if param.enum:
-                    prop["enum"] = param.enum
-                properties[param.name] = prop
-                if param.required:
-                    required.append(param.name)
+                for param in tool.parameters:
+                    prop = {"type": param.type.upper(), "description": param.description}
+                    if param.enum:
+                        prop["enum"] = param.enum
+                    properties[param.name] = prop
+                    if param.required:
+                        required.append(param.name)
 
-            func_decl = types.FunctionDeclaration(
-                name=tool.name,
-                description=tool.description,
-                parameters=types.Schema(
+                params_schema = types.Schema(
                     type="OBJECT",
                     properties={
                         k: types.Schema(**v) for k, v in properties.items()
                     },
                     required=required,
-                ) if properties else None,
+                ) if properties else None
+
+            func_decl = types.FunctionDeclaration(
+                name=tool.name,
+                description=tool.description,
+                parameters=params_schema,
             )
             function_declarations.append(func_decl)
 
@@ -131,9 +172,9 @@ class GeminiProvider(BaseProvider):
             # Map legacy/hallucinated model names to valid Google GenAI models
             actual_model = self.model_name
             if actual_model in ["gemini", "gemini-2.5-flash"]:
-                actual_model = "gemini-2.0-flash"
+                actual_model = "gemini-3.8-flash"
             elif actual_model in ["gemini_pro", "gemini-2.5-pro"]:
-                actual_model = "gemini-1.5-pro"
+                actual_model = "gemini-3.1-pro-preview"
 
             try:
                 response = client.models.generate_content(
@@ -145,7 +186,7 @@ class GeminiProvider(BaseProvider):
                 err_str = str(initial_err).lower()
                 # If model is not found, fallback to gemini-2.0-flash or gemini-1.5-flash
                 if any(x in err_str for x in ["not_found", "not found", "404", "invalid_argument"]):
-                    fallbacks = ["gemini-2.0-flash", "gemini-1.5-flash"]
+                    fallbacks = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-3.5-flash-lite"]
                     recovered = False
                     for fb in fallbacks:
                         if fb == actual_model:
