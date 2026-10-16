@@ -710,6 +710,134 @@ document.addEventListener('DOMContentLoaded', () => {
     const freeModelNote = document.getElementById('freeModelNote');
     const openrouterApiKeyInput = document.getElementById('openrouterApiKeyInput');
 
+    // ---- Live Model Browser + toasts ----
+    const mbProvider = document.getElementById('mbProvider');
+    const mbSearch = document.getElementById('mbSearch');
+    const mbFreeOnly = document.getElementById('mbFreeOnly');
+    const mbRefresh = document.getElementById('mbRefresh');
+    const mbStatus = document.getElementById('mbStatus');
+    const modelList = document.getElementById('modelList');
+    const toastStack = document.getElementById('toastStack');
+
+    let currentBrowserProvider = 'gemini';
+    let discoveredModels = [];
+
+    function toast(msg, type = 'info', ms = 4200) {
+        if (!toastStack) return;
+        const el = document.createElement('div');
+        el.className = `toast ${type}`;
+        el.textContent = msg;
+        toastStack.appendChild(el);
+        setTimeout(() => {
+            el.classList.add('fade-out');
+            setTimeout(() => el.remove(), 320);
+        }, ms);
+    }
+
+    function escapeHtml(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function keyInputForProvider(provider) {
+        if (provider === 'gemini') return document.getElementById('geminiApiKeyInput');
+        if (provider === 'openrouter' || provider === 'opencode') return document.getElementById('openrouterApiKeyInput');
+        if (provider === 'groq') return document.getElementById('groqApiKeyInput');
+        if (provider === 'openai') return document.getElementById('openaiApiKeyInput');
+        return null;
+    }
+
+    function ctxLabel(n) {
+        if (!n) return '';
+        if (n >= 1000000) return (n / 1000000).toFixed(n % 1000000 ? 1 : 0) + 'M ctx';
+        return Math.round(n / 1024) + 'k ctx';
+    }
+
+    function renderModelList() {
+        if (!modelList) return;
+        const q = (mbSearch && mbSearch.value || '').trim().toLowerCase();
+        let list = discoveredModels.slice();
+        if (q) list = list.filter(m => ((m.name || '') + ' ' + m.id).toLowerCase().includes(q));
+        if (!list.length) {
+            modelList.innerHTML = '<div class="empty-state">No models match your search.</div>';
+            return;
+        }
+        modelList.innerHTML = '';
+        list.forEach(m => {
+            const row = document.createElement('div');
+            row.className = 'model-row';
+            const badges = [];
+            if (m.free) badges.push('<span class="chip chip-free">FREE</span>');
+            else if (m.free_tier) badges.push('<span class="chip chip-tier">FREE TIER</span>');
+            const ctx = ctxLabel(m.context_length);
+            if (ctx) badges.push(`<span class="chip chip-ctx">${ctx}</span>`);
+            row.innerHTML = `
+                <div class="mr-main">
+                    <div class="mr-name">${escapeHtml(m.name || m.id)}</div>
+                    <div class="mr-id">${escapeHtml(m.id)}</div>
+                </div>
+                <div class="mr-badges">${badges.join('')}</div>`;
+            row.addEventListener('click', () => useModel(currentBrowserProvider, m.id));
+            modelList.appendChild(row);
+        });
+    }
+
+    async function loadModelBrowser(provider) {
+        currentBrowserProvider = provider || currentBrowserProvider;
+        if (mbProvider) mbProvider.textContent = currentBrowserProvider;
+        if (!modelList) return;
+
+        const keyInput = keyInputForProvider(currentBrowserProvider);
+        const key = keyInput ? keyInput.value.trim() : '';
+        const freeOnly = (mbFreeOnly && mbFreeOnly.checked) ? '&free_only=true' : '';
+
+        if (mbStatus) mbStatus.textContent = `⏳ Fetching live models for ${currentBrowserProvider}…`;
+        if (mbRefresh) mbRefresh.disabled = true;
+        modelList.innerHTML = '<div class="empty-state">Loading…</div>';
+
+        try {
+            const url = `/api/brain/discover-models?provider=${encodeURIComponent(currentBrowserProvider)}${key ? `&api_key=${encodeURIComponent(key)}` : ''}${freeOnly}`;
+            const res = await fetch(url);
+            const data = await res.json();
+            discoveredModels = data.models || [];
+            if (mbStatus) {
+                const src = data.fallback ? 'curated fallback (live list unavailable)' : 'live from provider';
+                mbStatus.textContent = `✨ ${discoveredModels.length} models — ${src}`;
+            }
+            renderModelList();
+        } catch (err) {
+            discoveredModels = [];
+            modelList.innerHTML = '<div class="empty-state">Could not load models.</div>';
+            if (mbStatus) mbStatus.textContent = '⚠️ Could not reach the provider.';
+        } finally {
+            if (mbRefresh) mbRefresh.disabled = false;
+        }
+    }
+
+    async function useModel(provider, modelId) {
+        try {
+            toast(`Activating ${modelId}…`, 'info');
+            const res = await fetch('/api/brain/use-model', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ provider, model_id: modelId })
+            });
+            const data = await res.json();
+            if (!res.ok) { toast(data.detail || 'Could not activate model', 'error'); return; }
+            toast(`✅ Active model: ${modelId}`, 'success');
+            if (activeModelVal) activeModelVal.textContent = data.active_model.toUpperCase();
+            await fetchBrainStatus();
+            renderModelList();
+        } catch (err) {
+            toast(`Error: ${err.message}`, 'error');
+        }
+    }
+
+    if (mbSearch) mbSearch.addEventListener('input', renderModelList);
+    if (mbFreeOnly) mbFreeOnly.addEventListener('change', () => loadModelBrowser(currentBrowserProvider));
+    if (mbRefresh) mbRefresh.addEventListener('click', () => loadModelBrowser(currentBrowserProvider));
+
     async function fetchOpenRouterFreeModels(userKey = '') {
         if (!openrouterModelSelect) return;
         const key = userKey || (openrouterApiKeyInput ? openrouterApiKeyInput.value.trim() : '');
@@ -842,6 +970,7 @@ document.addEventListener('DOMContentLoaded', () => {
             brainModal.classList.remove('hidden');
             fetchBrainStatus();
             fetchOpenRouterFreeModels();
+            loadModelBrowser(currentBrowserProvider);
         });
     }
 
@@ -888,6 +1017,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (prov === 'openrouter') {
                 fetchOpenRouterFreeModels();
             }
+            loadModelBrowser(prov);
         });
     });
 
