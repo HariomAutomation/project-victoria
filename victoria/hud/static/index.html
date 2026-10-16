@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@500;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/hud.css?v=2.1">
+    <link rel="stylesheet" href="css/hud.css?v=2.2">
     <!-- Three.js for 3D Holographic Brain -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
@@ -42,20 +42,23 @@
                 <span class="status-dot dot-warn" id="aiStatusDot"></span>
                 <span>⚡ Connect AI</span>
             </button>
+            <button class="action-btn" id="codeDeckBtn" title="Open Victoria Code Deck (IDE)" onclick="window.location.href='/ide'">⌨ Code Deck</button>
             <button class="action-btn" id="personaBtn" title="View Digital Twin Profile">🧬 Persona</button>
             <button class="action-btn" id="screenshotBtn" title="Take Screenshot">📸 Screen</button>
             <button class="action-btn" id="volDownBtn" title="Volume Down">🔉 Vol -</button>
             <button class="action-btn" id="volUpBtn" title="Volume Up">🔊 Vol +</button>
-            <select id="modelSelector" class="cyber-select">
-                <option value="gemini">Gemini 2.5 Flash</option>
-                <option value="gemini_pro">Gemini 2.5 Pro</option>
-                <option value="openrouter">OpenRouter LLaMA 3.3 (Free)</option>
-                <option value="opencode">OpenCode Qwen 2.5 Coder</option>
-                <option value="groq">Groq Cloud (Fast)</option>
+            <select id="modelSelector" class="cyber-select" title="Active AI Brain">
+                <option value="gemini">Gemini 3.8 Flash (latest)</option>
+                <option value="gemini_flash_lite">Gemini 3.5 Flash-Lite (cheap)</option>
+                <option value="gemini_pro">Gemini 3.1 Pro (reasoning)</option>
+                <option value="openrouter">OpenRouter — Free Auto-Router</option>
+                <option value="openrouter_free">OpenRouter — Gemma 4 31B (Free)</option>
+                <option value="opencode">OpenCode — Qwen3.8 27B (Free)</option>
+                <option value="groq">Groq Cloud (fast, free tier)</option>
                 <option value="openai_gpt4o">OpenAI GPT-4o Mini</option>
                 <option value="sarvam">Sarvam AI (Indic)</option>
-                <option value="local_fast">Ollama Fast (Local)</option>
-                <option value="local_coder">Qwen Coder (Local)</option>
+                <option value="local_fast">Ollama — local</option>
+                <option value="local_coder">Ollama — Qwen Coder (local)</option>
             </select>
         </div>
     </header>
@@ -254,7 +257,7 @@
                 <div class="brain-status-banner">
                     <div class="banner-info">
                         <span class="banner-label">ACTIVE BRAIN ENGINE:</span>
-                        <span class="banner-value" id="currentActiveEngine">GEMINI 2.5 FLASH</span>
+                        <span class="banner-value" id="currentActiveEngine">GEMINI 3.8 FLASH</span>
                     </div>
                     <span class="badge badge-warn" id="currentEngineStatus">● CHECKING STATUS</span>
                 </div>
@@ -278,12 +281,31 @@
                     </button>
                 </div>
 
+                <!-- Live Model Browser (shared across providers) -->
+                <div class="model-browser" id="modelBrowser">
+                    <div class="mb-head">
+                        <div class="mb-title-group">
+                            <span class="mb-title">🔎 LIVE MODEL BROWSER</span>
+                            <span class="mb-provider" id="mbProvider">—</span>
+                        </div>
+                        <div class="mb-tools">
+                            <input type="search" id="mbSearch" class="mb-search" placeholder="Search models…" autocomplete="off">
+                            <label class="mb-checkbox" title="Show only free / free-tier models">
+                                <input type="checkbox" id="mbFreeOnly"> Free only
+                            </label>
+                            <button type="button" id="mbRefresh" class="mb-refresh" title="Re-fetch from provider">↻</button>
+                        </div>
+                    </div>
+                    <div class="mb-status" id="mbStatus">Select a provider tab — its live model list appears here.</div>
+                    <div class="model-list" id="modelList"></div>
+                </div>
+
                 <!-- Tab Panels -->
                 <!-- 1. Gemini -->
                 <div class="provider-panel" id="panel-gemini">
                     <div class="provider-header">
                         <div class="provider-info">
-                            <h3>Google Gemini 2.5 (Recommended)</h3>
+                            <h3>Google Gemini 3.x (Recommended)</h3>
                             <p class="provider-desc">Best for Victoria: High-speed, natural Hindi/English voice chat, native tool calling, and free tier.</p>
                         </div>
                         <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="cyber-link">Free API Key ↗</a>
@@ -298,8 +320,8 @@
                     <div class="form-group">
                         <label for="geminiModelSelect">Brain Model</label>
                         <select id="geminiModelSelect" class="cyber-select full-width">
-                            <option value="gemini">Gemini 2.0 Flash (Super Fast & Smart - Default)</option>
-                            <option value="gemini_pro">Gemini 1.5 Pro (Deep Multi-Step Reasoning)</option>
+                            <option value="gemini">Gemini 3.8 Flash (Latest - Fast &amp; Smart - Default)</option>
+                            <option value="gemini_pro">Gemini 3.1 Pro (Deep Multi-Step Reasoning)</option>
                         </select>
                     </div>
                     <div class="provider-actions">
@@ -333,13 +355,11 @@
                             </button>
                         </div>
                         <select id="openrouterModelSelect" class="cyber-select full-width">
+                            <option value="openrouter/free">OpenRouter: Free Auto-Router (Always Free)</option>
                             <option value="nvidia/nemotron-3.5-lightning:free">NVIDIA: Nemotron 3.5 Lightning (Free - 1M Context)</option>
                             <option value="cohere/north-mini-code:free">Cohere: North Mini Code (Free)</option>
                             <option value="liquid/lfm-2.5-2.6b:free">Liquid: LFM 2.5 2.6B (Free)</option>
-                            <option value="meta-llama/llama-3.3-70b-instruct:free">Meta: LLaMA 3.3 70B Instruct (Free)</option>
-                            <option value="google/gemma-2-9b-it:free">Google: Gemma 2 9B IT (Free)</option>
-                            <option value="qwen/qwen-2.5-coder-32b-instruct:free">Qwen: 2.5 Coder 32B Instruct (Free)</option>
-                            <option value="deepseek/deepseek-r1:free">DeepSeek: R1 Reasoning (Free)</option>
+                            <option value="google/gemma-4-31b-it:free">Google: Gemma 4 31B IT (Free)</option>
                         </select>
                         <span id="freeModelNote" style="font-size:0.7rem; color:var(--neon-green); font-family:var(--font-mono); margin-top:4px; display:block;">
                             ✨ लोड हो रहा है: 100% मुफ़्त AI मॉडल्स...
@@ -430,11 +450,14 @@
         </div>
     </div>
 
+    <!-- Toast notifications -->
+    <div class="toast-stack" id="toastStack"></div>
+
     <!-- Audio Playback Element for TTS Voice -->
     <audio id="ttsAudio" style="display:none;"></audio>
 
     <script src="js/brain_3d.js?v=2.1"></script>
     <script src="js/audio_wave.js?v=2.1"></script>
-    <script src="js/app.js?v=2.1"></script>
+    <script src="js/app.js?v=2.2"></script>
 </body>
 </html>
