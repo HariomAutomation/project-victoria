@@ -140,9 +140,9 @@ def run_voice_mode(router: BrainRouter, memory: ConversationMemory):
 
             # Speaker verification on wake word itself if enrolled
             if verifier.is_enrolled():
-                is_owner, similarity = verifier.verify(wake_audio, threshold=0.52)
+                is_owner, similarity = verifier.verify(wake_audio)
                 if not is_owner:
-                    console.print(f"[bold red]🚫 Unauthorized voice detected ({similarity:.2f} < 0.52)! Victoria is ignoring this request.[/bold red]")
+                    console.print(f"[bold red]🚫 Unauthorized voice detected ({similarity:.2f} < {verifier.threshold:.2f})! Victoria is ignoring this request.[/bold red]")
                     continue
 
             tts.speak("Ji Malik, kahiye, main sun rahi hoon.")
@@ -175,7 +175,7 @@ def run_voice_mode(router: BrainRouter, memory: ConversationMemory):
                     is_owner, similarity = verifier.verify(audio_data)
                     console.print(f"[dim]Speaker similarity: {similarity:.2f}[/dim]")
                     if not is_owner:
-                        console.print(f"[bold red]🚫 Voice did not match owner ({similarity:.2f} < 0.65). Exiting dialogue.[/bold red]")
+                        console.print(f"[bold red]🚫 Voice did not match owner ({similarity:.2f} < {verifier.threshold:.2f}). Exiting dialogue.[/bold red]")
                         tts.speak("Maaf kijiye, awaz match nahi hui.")
                         time.sleep(0.6)
                         in_dialogue = False
